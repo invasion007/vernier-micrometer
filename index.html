@@ -953,8 +953,8 @@ var rows = [
 ['量程（常见）', '0 ~ 150 mm', '0 ~ 25 mm'],
 ['谁更准', '0.02 mm', '0.001 mm —— 高一个数量级']
 ];
-var top = clamp(H * 0.10, 76, 110);
-var rh = clamp((H - top - 96) / rows.length, 34, 68);
+var rh = clamp(H * 0.098, 40, 96);
+var top = Math.max(78, (H - rows.length * rh) / 2 - 12);
 var c0 = 44, c1 = c0 + clamp(W * 0.13, 110, 190);
 var cw = (W - c1 - 44) / 2;
 var i, j;
@@ -980,7 +980,7 @@ txt(ctx, rows[i][2], c1 + cw * 1.5, yc, { size: 13, color: C.white });
 for (j = 1; j <= 2; j++) {
 seg(ctx, c1 + j * cw, top, c1 + j * cw, top + rows.length * rh, C.grey, 1, null, 0.30);
 }
-conclusion(ctx, 44, top + rows.length * rh + 42,
+conclusion(ctx, 44, top + rows.length * rh + 44,
 '同一把尺：卡尺看「哪条线对齐」，测微器看「转过多少格」。', 18);
 }
 
