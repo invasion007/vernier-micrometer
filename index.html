@@ -1175,14 +1175,14 @@ xp = X(i);
 hh = (i % 10 === 0) ? beamH * 0.48 : (i % 5 === 0 ? beamH * 0.33 : beamH * 0.21);
 seg(ctx, xp, yBeam + beamH - 1, xp, yBeam + beamH - 1 - hh, C.dLo,
 i % 5 === 0 ? 1.2 : 0.8, null, i % 5 === 0 ? 0.95 : 0.68);
-if (i % (compact ? 20 : 10) === 0) {
+if (i % (compact ? 20 : 10) === 0 && xp < W - mR - 76) {
 txt(ctx, String(i), xp, yBeam + beamH * 0.30, { size: compact ? 10 : 11, color: C.dLo, weight: 600 });
 }
 }
 if (!compact) {
-txt(ctx, 'mm', bx0 + 14, yBeam + beamH * 0.30, { size: 11, color: C.dLo, weight: 600, align: 'left' });
+txt(ctx, 'mm', bx0 + 6, yBeam - 11, { size: 11, color: C.grey2, weight: 600, align: 'left' });
 txt(ctx, '窗口 ' + mm0.toFixed(0) + ' ~ ' + mm1.toFixed(0) + ' mm',
-bx1 - 14, yBeam + beamH * 0.30, { size: 11, color: C.dLo, align: 'right' });
+bx1 - 6, yBeam - 11, { size: 11, color: C.grey2, align: 'right' });
 }
 
 var jawW = clamp(pxmm * 1.6, 6, 18);
