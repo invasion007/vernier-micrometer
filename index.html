@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游标卡尺与螺旋测微器 · 读数与原理 · 可交互课件</title>
+<style>
+  :root{
+    /* A · Manim 基调：纯黑底 + 白线为主 + Manim 官方色常量
+       蓝 = 主尺/固定刻度   红 = 游标/可动刻度   黄 = 总读数（结论量）
+       一屏同屏彩色元素 ≤ 3 种；不使用渐变/霓虹/投影 */
+    --bg:#000000; --bg2:#0a0a0a; --panel:#0e0e0e; --line:#242424; --line2:#383838;
+    --ink:#FFFFFF; --ink2:#B0B0B0; --muted:#888888;
+    --blue:#58C4DD; --red:#FC6255; --yellow:#FFFF00; --gold:#F0AC5F;
+    --green:#83C167; --purple:#9A72AC;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{background:var(--bg); color:var(--ink);
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC","WenQuanYi Zen Hei",sans-serif; overflow:hidden;}
+  .app{display:grid; grid-template-rows:auto auto 1fr auto auto; height:100vh;}
+
+  header{display:flex; align-items:baseline; gap:14px; padding:9px 18px 7px; flex-wrap:wrap; row-gap:3px;
+    background:var(--bg2); border-bottom:1px solid var(--line);}
+  header h1{font-size:16px; margin:0; font-weight:600; letter-spacing:.5px; white-space:nowrap;}
+  .act{font-size:13px; color:var(--yellow); border:1px solid var(--line2); border-radius:10px; padding:1px 9px; white-space:nowrap;}
+  .steptitle{font-size:15px; color:var(--ink); font-weight:600;}
+  .stepsn{margin-left:auto; font-size:13px; color:var(--ink2); font-variant-numeric:tabular-nums;}
+
+  .topnav{display:flex; align-items:center; gap:5px; padding:5px 14px 6px;
+    background:var(--bg2); border-bottom:1px solid var(--line); overflow-x:auto; overflow-y:hidden;}
+  .topnav .grouplab{flex:0 0 auto; font-size:11px; letter-spacing:.6px; color:var(--muted); font-weight:600; white-space:nowrap;}
+  .topnav .sep{flex:0 0 auto; width:1px; height:15px; background:var(--line2); margin:0 5px;}
+  .topnav a{flex:0 0 auto; min-width:27px; height:22px; padding:0 7px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:12px; font-variant-numeric:tabular-nums; color:var(--ink2); background:#141414;
+    border:1px solid var(--line2); border-radius:6px; cursor:pointer;}
+  .topnav a:hover{background:#1e1e1e; color:var(--ink);}
+  .topnav a.on{background:rgba(255,255,0,0.12); border-color:var(--yellow); color:var(--yellow); font-weight:700;}
+
+  .stage{display:grid; grid-template-columns:1fr 296px; min-height:0;}
+  .canvaswrap{position:relative; min-width:0; min-height:0; padding:6px 8px 0 8px;}
+  canvas{display:block; width:100%; height:100%; cursor:grab; touch-action:none;}
+  .hint{padding:6px 20px 0 20px; font-size:12.5px; color:var(--muted); min-height:32px;}
+  .hint b{color:var(--yellow); font-weight:600;}
+
+  aside{background:var(--panel); border-left:1px solid var(--line); padding:10px 12px 14px; overflow-y:auto; min-height:0;}
+  aside h3{font-size:12px; color:var(--muted); margin:13px 0 6px; font-weight:600; letter-spacing:.5px;}
+  aside h3:first-child{margin-top:2px;}
+  .rd{display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:3px 0;
+    font-size:12.5px; color:var(--ink2); border-bottom:1px dashed #242424;}
+  .rd span{white-space:nowrap;}
+  .rd b{font-size:14px; color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .rd b.blue{color:var(--blue);} .rd b.red{color:var(--red);}
+  .rd b.yellow{color:var(--yellow);} .rd b.gold{color:var(--gold);} .rd b.grey{color:var(--muted);}
+  .total{margin-top:8px; padding:8px 10px; border:1px solid var(--line2); border-radius:8px; background:#141414;}
+  .total .lab{font-size:12px; color:var(--muted); display:block; margin-bottom:2px;}
+  .total b{font-size:19px; color:var(--yellow); font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:.5px;}
+  .formula{font-size:13.5px; color:var(--ink); background:#141414; border:1px solid var(--line2);
+    border-radius:8px; padding:8px 10px; line-height:1.6; word-break:break-word;}
+  .note{font-size:12.5px; color:var(--ink2); line-height:1.66;}
+  .note b{color:var(--yellow); font-weight:600;}
+  .grp{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .grp .lab{font-size:12.5px; color:var(--muted);}
+  button{font-family:inherit; font-size:12.5px; color:var(--ink2); background:#141414;
+    border:1px solid var(--line2); border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap;}
+  button:hover{background:#1e1e1e; color:var(--ink);}
+  button.on{background:rgba(255,255,0,0.12); border-color:var(--yellow); color:var(--yellow); font-weight:700;}
+  button.main{background:#1a1a1a; color:var(--ink);}
+  button.warn{background:#1a1a1a; color:var(--gold);}
+
+  .quiz{margin-top:6px;}
+  .quiz input{width:100%; font-family:inherit; font-size:15px; font-variant-numeric:tabular-nums;
+    color:var(--yellow); background:#141414; border:1px solid var(--line2); border-radius:6px;
+    padding:6px 9px; outline:none;}
+  .quiz input:focus{border-color:var(--yellow);}
+  .qdec{font-size:11.5px; color:var(--muted); margin-top:4px;}
+  .qmsg{font-size:12px; margin-top:6px; line-height:1.5; color:var(--ink2);}
+  .qmsg.ok{color:var(--green);} .qmsg.bad{color:var(--red);}
+  .qans{font-size:13px; color:var(--yellow); margin-top:5px; font-variant-numeric:tabular-nums;}
+
+  footer{display:flex; align-items:center; gap:8px; flex-wrap:wrap; row-gap:6px;
+    padding:8px 14px 9px; background:var(--bg2); border-top:1px solid var(--line);}
+  .bar{position:relative; flex:1 1 120px; min-width:80px; height:6px; background:#141414; border-radius:3px;}
+  .bar i{display:block; height:100%; width:0; background:var(--yellow); border-radius:3px;}
+  .slider{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);}
+  .slider input[type=range]{width:132px; accent-color:#4a4a4a;}
+  .slider b{color:var(--ink); font-variant-numeric:tabular-nums; min-width:62px; text-align:right;}
+  .hidden{display:none !important;}
+
+  @media (max-width: 900px){
+    .stage{grid-template-columns:1fr; grid-template-rows:1fr auto;}
+    aside{border-left:none; border-top:1px solid var(--line); max-height:30vh;}
+    .hint{font-size:12px;}
+    header h1{font-size:14px;} .steptitle{font-size:13px;}
+    .slider input[type=range]{width:88px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>游标卡尺 &amp; 螺旋测微器</h1>
+    <span class="act" id="actTag">第一幕</span>
+    <span class="steptitle" id="stepTitle">—</span>
+    <span class="stepsn" id="stepSn">1 / 18</span>
+  </header>
+
+  <nav class="topnav" id="toc" aria-label="步骤导航"></nav>
+
+  <div class="stage">
+    <div class="canvaswrap"><canvas id="cv"></canvas></div>
+    <aside>
+      <h3 id="rdHead1">主尺读数</h3>
+      <div id="rdGroup1"></div>
+      <h3 id="rdHead2">游标尺读数</h3>
+      <div id="rdGroup2"></div>
+      <div class="total"><span class="lab">总读数</span><b id="rdTotal">—</b></div>
+
+      <div id="quizPane" class="quiz hidden">
+        <h3>你的读数（mm）</h3>
+        <input id="quizIn" type="text" inputmode="decimal" autocomplete="off" placeholder="例 7.30">
+        <div class="qdec" id="quizDec"></div>
+        <div class="grp" style="margin-top:7px">
+          <button id="btnQuizCheck" class="main">核对</button>
+          <button id="btnQuizAns" class="warn">显示答案</button>
+        </div>
+        <div class="qmsg" id="quizMsg"></div>
+        <div class="qans hidden" id="quizAns"></div>
+      </div>
+
+      <h3>这一刻的公式</h3>
+      <div class="formula" id="rdFormula">—</div>
+      <h3>提示</h3>
+      <div class="note" id="rdNote"></div>
+      <div class="note" style="margin-top:6px;color:#888888">键盘 ← → 翻步；画布上直接<b style="color:#F0AC5F">拖动</b>也能移动游标尺 / 微分筒。</div>
+    </aside>
+  </div>
+
+  <div class="hint" id="hint"></div>
+
+  <footer>
+    <button id="btnPrev">◀ 上一步</button>
+    <button id="btnNext" class="main">下一步 ▶</button>
+    <button id="btnReset">↺ 复位本步</button>
+    <div class="bar" id="prog"><i></i></div>
+
+    <div class="slider" id="wrap_x"><span id="lbXLab">游标零线位置</span>
+      <input type="range" id="rgX" min="0" max="21" step="0.02" value="7.3"><b id="lbX">7.30 mm</b></div>
+    <div class="slider" id="wrap_zoom"><span>放大倍数</span>
+      <input type="range" id="rgZoom" min="1" max="4" step="0.5" value="1"><b id="lbZoom">×1.0</b></div>
+
+    <div class="grp" id="wrapDivBtn"><span class="lab">分度</span>
+      <button data-div="10">10 分度</button>
+      <button data-div="20">20 分度</button>
+      <button data-div="50">50 分度</button>
+      <span class="lab" id="lbDiv">10 分度</span>
+    </div>
+
+    <div class="grp" id="wrapFine"><span class="lab">微调</span>
+      <button data-d="-0.01">−0.01</button>
+      <button data-d="0.01">+0.01</button>
+      <button data-d="-0.001">−0.001</button>
+      <button data-d="0.001">+0.001</button>
+    </div>
+
+    <div class="grp" id="wrapQuizBtn">
+      <button id="btnQuizNew" class="main">随机出题</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+
+
+window.VizPhys = (function () {
+'use strict';
+
+var VERNIER = {
+10: { k: 10, precision: 0.1,  dec: 1, span: 9  },
+20: { k: 20, precision: 0.05, dec: 2, span: 19 },
+50: { k: 50, precision: 0.02, dec: 2, span: 49 }
+};
+var DIVS = [10, 20, 50];
+var CAL_XMAX = 21;
+
+function vcfg(div) { return VERNIER[div] || VERNIER[10]; }
+
+function caliperSpan(div) { return vcfg(div).span + CAL_XMAX; }
+
+function vernier(x, div) {
+var c = vcfg(div), k = c.k;
+if (!(x >= 0)) { x = 0; }
+if (x > CAL_XMAX) { x = CAL_XMAX; }
+var L = Math.floor(x + 1e-9);
+var frac = x - L;
+var n = Math.round(frac * k);
+if (n >= k) { n = 0; L += 1; }
+var vLine = x + n * (k - 1) / k;
+var mLine = L + n;
+return {
+div: div, k: k, precision: c.precision, dec: c.dec, span: c.span,
+x: x, mainMM: L, idx: n, vernierMM: n / k, total: L + n / k,
+vLine: vLine, mLine: mLine, residual: vLine - mLine
+};
+}
+
+function fmtCaliper(r) { return r.total.toFixed(r.dec); }
+
+var MIC_MAX   = 12;
+var MIC_PITCH = 0.5;
+var MIC_DIV   = 50;
+
+function micro(x) {
+if (!(x >= 0)) { x = 0; }
+if (x > MIC_MAX) { x = MIC_MAX; }
+var xm = Math.round(x * 1000);
+var half = Math.floor(xm / 500);
+var rem  = xm - half * 500;
+var div  = Math.floor(rem / 10);
+var est  = rem % 10;
+return {
+x: xm / 1000, xm: xm,
+half: half, fixedMM: half * 0.5,
+div: div, movableMM: div * 0.01,
+est: est, estMM: est * 0.001,
+total: xm / 1000,
+phase: rem / 500,
+tight: rem < 50
+};
+}
+
+function fmtMicro(r) { return r.total.toFixed(3); }
+
+function mulberry32(a) {
+return function () {
+a |= 0; a = a + 0x6D2B79F5 | 0;
+var t = Math.imul(a ^ a >>> 15, 1 | a);
+t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+}
+function rndInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function rndIntS(rng, a, b) { return a + Math.floor(rng() * (b - a + 1)); }
+
+function newCaliper(div) {
+var c = vcfg(div);
+var L = rndInt(1, CAL_XMAX - 1);
+var n = rndInt(1, c.k - 1);
+return L + n / c.k;
+}
+
+function newMicro() {
+return rndInt(100, MIC_MAX * 1000 - 100) / 1000;
+}
+
+function newCaliperS(div, seed) {
+var c = vcfg(div), rng = mulberry32(seed >>> 0);
+var L = rndIntS(rng, 1, CAL_XMAX - 1);
+var n = rndIntS(rng, 1, c.k - 1);
+return L + n / c.k;
+}
+function newMicroS(seed) {
+var rng = mulberry32(seed >>> 0);
+return rndIntS(rng, 100, MIC_MAX * 1000 - 100) / 1000;
+}
+
+function diagnoseCaliper(got, r) {
+if (!isFinite(got)) { return { ok: false, kind: 'empty', msg: '还没有填读数' }; }
+if (Math.abs(got - r.total) < 1e-6) {
+return { ok: true, kind: 'ok', msg: '读数正确' };
+}
+var gL = Math.floor(got + 1e-9), gFrac = got - gL;
+var gN = Math.round(gFrac * r.k);
+if (gN >= r.k) { gN = 0; gL += 1; }
+if (gL !== r.mainMM) {
+return { ok: false, kind: 'main',
+msg: '主尺读数错：游标 0 线左边最近的主尺刻度是 ' + r.mainMM +
+' mm，你读的是 ' + gL + ' mm' };
+}
+if (gN !== r.idx) {
+return { ok: false, kind: 'vernier',
+msg: '游标读数错：与主尺对齐的是第 ' + r.idx + ' 条线，你数成了第 ' + gN + ' 条' };
+}
+return { ok: false, kind: 'other', msg: '再核对一遍' };
+}
+
+function diagnoseMicro(got, r) {
+if (!isFinite(got)) { return { ok: false, kind: 'empty', msg: '还没有填读数' }; }
+if (Math.abs(got - r.total) < 5e-4) {
+return { ok: true, kind: 'ok', msg: '读数正确' };
+}
+var gm = Math.round(got * 1000);
+var gHalf = Math.floor(gm / 500);
+var gRem = gm - gHalf * 500;
+var gDiv = Math.floor(gRem / 10);
+if (gHalf !== r.half) {
+return { ok: false, kind: 'fixed',
+msg: '固定刻度错：露出的最后一条刻度是 ' + r.fixedMM.toFixed(1) +
+' mm，你读的是 ' + (gHalf * 0.5).toFixed(1) + ' mm' +
+(Math.abs(gHalf - r.half) === 1 ? '（多半是半毫米线看漏/看多了）' : '') };
+}
+if (gDiv !== r.div) {
+return { ok: false, kind: 'movable',
+msg: '可动刻度错：基准线对着第 ' + r.div + ' 格，你读的是第 ' + gDiv + ' 格' };
+}
+return { ok: false, kind: 'est', msg: '格数对了，只差估读位 —— 再看一眼基准线落在格内的位置' };
+}
+
+function runSelfTest() {
+var fails = [], cases = 0;
+function chk(cond, msg) { cases++; if (!cond) { fails.push(msg); } }
+
+DIVS.forEach(function (div) {
+var c = vcfg(div), k = c.k, i, x, r;
+for (i = 0; i <= 420; i++) {
+x = i * 0.05 + 0.031;
+if (x > CAL_XMAX) { break; }
+r = vernier(x, div);
+chk(Math.abs(r.total - x) <= c.precision / 2 + 1e-9,
+'卡尺量化误差超标 div=' + div + ' x=' + x.toFixed(4) + ' got=' + r.total.toFixed(4));
+chk(Math.abs(r.residual) <= 1 / (2 * k) + 1e-9,
+'对齐残差超标 div=' + div + ' x=' + x.toFixed(4) + ' res=' + r.residual);
+chk(Math.abs(r.mainMM + r.idx / k - r.total) < 1e-9,
+'分解式不符 div=' + div + ' x=' + x.toFixed(4));
+chk(r.idx >= 0 && r.idx < k, '对齐序号越界 div=' + div + ' idx=' + r.idx);
+chk(r.mainMM >= 0, '主尺读数为负');
+}
+});
+
+var e1 = vernier(10.3, 10);
+chk(e1.mainMM === 10 && e1.idx === 3 && Math.abs(e1.total - 10.3) < 1e-9,
+'教材例：10 分度 10.3 mm');
+var e2 = vernier(6.55, 20);
+chk(e2.mainMM === 6 && e2.idx === 11 && Math.abs(e2.total - 6.55) < 1e-9,
+'教材例：20 分度 6.55 mm');
+var e3 = vernier(3.80, 50);
+chk(e3.mainMM === 3 && e3.idx === 40 && Math.abs(e3.total - 3.8) < 1e-9,
+'教材例：50 分度 3.80 mm');
+
+var i2, x2, r2;
+for (i2 = 0; i2 <= MIC_MAX * 1000; i2 += 7) {
+x2 = i2 / 1000;
+r2 = micro(x2);
+chk(Math.abs(r2.fixedMM + r2.movableMM + r2.estMM - r2.total) < 1e-9,
+'螺旋分解式不符 x=' + x2);
+chk(r2.div >= 0 && r2.div <= 49, '可动刻度越界 x=' + x2 + ' div=' + r2.div);
+chk(r2.est >= 0 && r2.est <= 9, '估读越界 x=' + x2 + ' est=' + r2.est);
+chk(Math.abs(r2.total - x2) < 1e-9, '往返不符 x=' + x2);
+chk(Math.abs(r2.fixedMM + r2.phase * MIC_PITCH - r2.total) < 1e-9,
+'转角相位不符 x=' + x2);
+}
+
+var m1 = micro(5.960);
+chk(m1.half === 11 && m1.fixedMM === 5.5 && m1.div === 46 && m1.est === 0,
+'教材例：5.5 + 46×0.01 = 5.960 mm');
+var m2 = micro(4.500);
+chk(m2.half === 9 && m2.fixedMM === 4.5 && m2.div === 0 && m2.est === 0,
+'教材例：4.500 mm（半毫米线刚露）');
+var m3 = micro(0.000);
+chk(m3.half === 0 && m3.div === 0 && m3.est === 0, '零点：0.000 mm');
+var m4 = micro(12);
+chk(m4.half === 24 && m4.div === 0, '量程上限：12.000 mm');
+
+var t;
+for (t = 0; t < 300; t++) {
+var cx = newCaliper(50);
+chk(cx >= 0 && cx <= CAL_XMAX, '卡尺出题越界 ' + cx);
+var cr = vernier(cx, 50);
+chk(Math.abs(cr.total - cx) < 1e-9, '卡尺出题不能完美对齐 ' + cx);
+var mx = newMicro();
+chk(mx >= 0 && mx <= MIC_MAX, '螺旋出题越界 ' + mx);
+}
+
+return { pass: fails.length === 0, cases: cases, fails: fails.slice(0, 12), nfail: fails.length };
+}
+
+return {
+VERNIER: VERNIER, DIVS: DIVS, CAL_XMAX: CAL_XMAX, MIC_MAX: MIC_MAX,
+MIC_PITCH: MIC_PITCH, MIC_DIV: MIC_DIV,
+vcfg: vcfg, caliperSpan: caliperSpan, vernier: vernier, fmtCaliper: fmtCaliper,
+micro: micro, fmtMicro: fmtMicro,
+newCaliper: newCaliper, newMicro: newMicro,
+newCaliperS: newCaliperS, newMicroS: newMicroS, mulberry32: mulberry32,
+diagnoseCaliper: diagnoseCaliper, diagnoseMicro: diagnoseMicro,
+runSelfTest: runSelfTest
+};
+})();
+
+
+
+window.VizRender = (function () {
+'use strict';
+
+var FONT = '"Microsoft YaHei","PingFang SC","Noto Sans SC","WenQuanYi Zen Hei",sans-serif';
+var C = {
+bg: '#000000', white: '#FFFFFF', grey: '#888888',
+yellow: '#FFFF00', red: '#FC6255', blue: '#58C4DD',
+green: '#83C167', gold: '#F0AC5F', purple: '#9A72AC', teal: '#5CD0B3'
+};
+
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+function txt(ctx, s, x, y, o) {
+o = o || {};
+ctx.save();
+ctx.font = (o.weight || 400) + ' ' + (o.size || 12) + 'px ' + (o.face || FONT);
+ctx.fillStyle = o.color || C.white;
+ctx.textAlign = o.align || 'center';
+ctx.textBaseline = o.base || 'middle';
+if (o.alpha != null) { ctx.globalAlpha = o.alpha; }
+ctx.fillText(s, x, y);
+ctx.restore();
+}
+
+function seg(ctx, x0, y0, x1, y1, color, w, dash, alpha) {
+ctx.save();
+ctx.strokeStyle = color; ctx.lineWidth = w || 1.4;
+ctx.lineCap = 'butt';
+if (dash) { ctx.setLineDash(dash); }
+if (alpha != null) { ctx.globalAlpha = alpha; }
+ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+ctx.restore();
+}
+
+function box(ctx, x, y, w, h, o) {
+o = o || {};
+ctx.save();
+if (o.fill) { ctx.fillStyle = o.fill; ctx.fillRect(x, y, w, h); }
+if (o.stroke) {
+ctx.strokeStyle = o.stroke; ctx.lineWidth = o.lw || 1.4;
+if (o.dash) { ctx.setLineDash(o.dash); }
+ctx.strokeRect(x, y, w, h);
+}
+ctx.restore();
+}
+
+function dot(ctx, x, y, r, color, alpha) {
+ctx.save();
+ctx.fillStyle = color; if (alpha != null) { ctx.globalAlpha = alpha; }
+ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+ctx.restore();
+}
+
+function glow(ctx, x, y, r, color) {
+ctx.save();
+ctx.shadowColor = color; ctx.shadowBlur = 10;
+ctx.fillStyle = color; ctx.globalAlpha = 0.45;
+ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+ctx.restore();
+}
+
+function halo(ctx, x, y, r, color) {
+ctx.save();
+ctx.globalAlpha = 0.16; ctx.fillStyle = color;
+ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+ctx.restore();
+}
+
+function head(ctx, W, title, sub) {
+txt(ctx, title, 22, 24, { size: 16, color: C.white, weight: 600, align: 'left' });
+if (sub) { txt(ctx, sub, 22, 46, { size: 12, color: C.grey, align: 'left' }); }
+}
+
+function legend(ctx, W, y, items) {
+var gap = 22, i, w = [], tw = 0;
+ctx.save(); ctx.font = '12px ' + FONT;
+for (i = 0; i < items.length; i++) { w.push(ctx.measureText(items[i].t).width + 18); tw += w[i] + gap; }
+ctx.restore();
+var x = Math.max(22, W - 22 - tw + gap);
+for (i = 0; i < items.length; i++) {
+dot(ctx, x + 5, y, 4, items[i].c);
+txt(ctx, items[i].t, x + 13, y, { size: 12, color: C.grey, align: 'left' });
+x += w[i] + gap;
+}
+}
+
+function conclusion(ctx, x, y, s, size) {
+txt(ctx, s, x, y, { size: size || 18, color: C.yellow, weight: 700, align: 'left' });
+}
+
+function drawScalePair(ctx, st, r, G, o) {
+o = o || {};
+var P = window.VizPhys, cfg = P.vcfg(st.div), k = cfg.k;
+var X = G.X, yM0 = G.yM0, yV1 = G.yV1, tk = G.tk;
+var big = !!o.big, fs = o.fs || (big ? 13 : 11.5);
+var i, n, xp, x, m0, m1, hh, hh2, col, w, al;
+
+m0 = Math.max(0, Math.floor(G.mm0));
+m1 = Math.ceil(G.mm1);
+for (i = m0; i <= m1; i++) {
+xp = X(i);
+if (xp < G.x0 - 2 || xp > G.x1 + 2) { continue; }
+hh = (i % 10 === 0) ? tk * 1.45 : (i % 5 === 0 ? tk * 1.18 : tk);
+al = (i % 5 === 0) ? 1 : 0.68;
+seg(ctx, xp, yM0, xp, yM0 + hh, C.white, i % 5 === 0 ? 1.4 : 1, null, al);
+var stepLbl = big ? 1 : (fs <= 10 ? 10 : 5);
+if (i % stepLbl === 0) {
+txt(ctx, String(i), xp, yM0 - 14, { size: fs, color: C.grey });
+}
+}
+
+seg(ctx, G.x0, G.yBeamTop, G.x1, G.yBeamTop, C.white, 1.5, null, 0.85);
+seg(ctx, G.x0, yM0, G.x1, yM0, C.white, 1.5, null, 0.88);
+
+txt(ctx, '主尺', G.x0 - 8, yM0, { size: 11, color: C.grey, align: 'right' });
+
+var lblEvery = big ? 5 : (fs <= 10 ? 10 : (k === 10 ? 1 : 5));
+for (n = 0; n <= k; n++) {
+x = r.x + n * (k - 1) / k;
+xp = X(x);
+if (xp < G.x0 - 2 || xp > G.x1 + 2) { continue; }
+var isAl = (n === r.idx && o.hiAlign);
+var isZero = (n === 0);
+col = (isAl || isZero) ? C.yellow : C.white;
+hh2 = tk * 0.82;
+if (n % 5 === 0) { hh2 = tk * 1.18; }
+if (isZero || isAl) { hh2 = tk * 1.62; }
+w = (isZero || isAl) ? 2.4 : (n % 5 === 0 ? 1.4 : 1);
+seg(ctx, xp, yV1, xp, yV1 - hh2, col, w, null,
+(isZero || isAl) ? 1 : (n % 5 === 0 ? 0.92 : 0.68));
+if (isAl) { halo(ctx, xp, yV1 - hh2 * 0.55, 9, C.yellow); }
+if (n % lblEvery === 0) {
+txt(ctx, String(n), xp, yV1 + 15,
+{ size: fs, color: (isZero || isAl) ? C.yellow : C.grey, weight: (isZero || isAl) ? 700 : 400 });
+}
+}
+seg(ctx, X(r.x), yV1, X(r.x + cfg.span), yV1, C.white, 1.5, null, 0.88);
+
+txt(ctx, '游标尺', G.x0 - 8, yV1, { size: 11, color: C.grey, align: 'right' });
+
+var pad = big ? 14 : 22;
+var sx0 = X(r.x) - pad, sx1 = X(r.x + cfg.span) + pad;
+var by0 = yV1 - tk * 1.62 - 15, by1 = yV1 + 26;
+ctx.save(); ctx.globalAlpha = 0.05; ctx.fillStyle = C.white;
+ctx.fillRect(sx0, by0, sx1 - sx0, by1 - by0); ctx.restore();
+box(ctx, sx0, by0, sx1 - sx0, by1 - by0, { stroke: C.white, lw: 1.4 });
+}
+
+function drawCaliperMarks(ctx, st, r, G) {
+var X = G.X;
+var yTop = Math.max(14, G.yM0 - 26), yBot = G.yV1 + 24;
+
+seg(ctx, X(r.x), yTop, X(r.x), yBot, C.yellow, 1.4, [7, 5], 0.75);
+txt(ctx, '游标 0 线', X(r.x), yTop - 11, { size: G.tk < 16 ? 10 : 11.5, color: C.yellow, weight: 600 });
+
+if (st.flags && st.flags.hiAlign) {
+seg(ctx, X(r.mLine), G.yM0 + 2, X(r.mLine), G.yV1 - 2, C.yellow, 1.6, [3, 3], 0.9);
+if (G.showAlignLabel) {
+txt(ctx, '对齐', X(r.mLine), G.yV1 + 32, { size: 11, color: C.yellow, weight: 600 });
+}
+}
+}
+
+function drawOffsetRibbon(ctx, st, r, G) {
+var P = window.VizPhys, cfg = P.vcfg(st.div), k = cfg.k;
+var X = G.X, pxmm = G.pxmm, yb = G.yRib;
+var frac = r.x - r.mainMM, n, xp, off, x2;
+var i;
+for (n = 0; n <= k; n++) {
+xp = X(r.x + n * (k - 1) / k);
+if (xp < G.x0 - 2 || xp > G.x1 + 2) { continue; }
+off = frac - n / k;
+if (Math.abs(off) > 1.02) { continue; }
+x2 = X(r.mainMM + n);
+seg(ctx, xp, yb - 9, xp, yb, C.grey, 1, null, 0.3);
+if (Math.abs(off) * pxmm < 1.0) {
+dot(ctx, xp, yb, 4, C.yellow);
+seg(ctx, xp - 12, yb, xp + 12, yb, C.yellow, 2.4);
+} else {
+seg(ctx, xp, yb, x2, yb, C.grey, 1.4, null, 0.5);
+dot(ctx, x2, yb, 2, C.grey, 0.5);
+}
+}
+seg(ctx, G.x0, yb, G.x1, yb, C.grey, 1, [7, 5], 0.22);
+txt(ctx, '对齐残差（短线越短越接近对齐）', G.x0 + 2, yb + 15, { size: 11, color: C.grey, align: 'left' });
+
+if (Math.abs(r.residual) < 1e-6) {
+var xa = X(r.mLine);
+seg(ctx, xa, yb + 4, xa, yb + 20, C.yellow, 1.6);
+txt(ctx, '残差 = 0', xa, yb + 29, { size: 11.5, color: C.yellow, weight: 600 });
+}
+}
+
+function drawCaliperBody(ctx, st, r, G) {
+var X = G.X, yV1 = G.yV1, yJ = G.yJaw, hj = G.jawH;
+var xFix = X(0), xMov = X(r.x);
+
+ctx.save();
+ctx.strokeStyle = C.white; ctx.lineWidth = 1.6;
+ctx.beginPath();
+ctx.moveTo(xFix, yV1 + 16); ctx.lineTo(xFix, yJ + hj);
+ctx.lineTo(xFix + 15, yJ + hj); ctx.lineTo(xFix + 15, yJ + hj - hj * 0.38);
+ctx.lineTo(xFix + 3, yJ + hj - hj * 0.38); ctx.lineTo(xFix + 3, yJ);
+ctx.stroke();
+ctx.restore();
+
+ctx.save();
+ctx.strokeStyle = C.yellow; ctx.lineWidth = 1.6;
+ctx.beginPath();
+ctx.moveTo(xMov, yV1 + 16); ctx.lineTo(xMov, yJ + hj);
+ctx.lineTo(xMov - 15, yJ + hj); ctx.lineTo(xMov - 15, yJ + hj - hj * 0.38);
+ctx.lineTo(xMov - 3, yJ + hj - hj * 0.38); ctx.lineTo(xMov - 3, yJ);
+ctx.stroke();
+ctx.restore();
+
+if (st.flags && st.flags.object) {
+var ox0 = xFix + 15, ox1 = xMov - 15;
+if (ox1 > ox0 + 4) {
+ctx.save();
+ctx.globalAlpha = 0.26; ctx.fillStyle = C.grey;
+ctx.fillRect(ox0, yJ + hj - hj * 0.34, ox1 - ox0, hj * 0.3);
+ctx.restore();
+box(ctx, ox0, yJ + hj - hj * 0.34, ox1 - ox0, hj * 0.3, { stroke: C.white, lw: 1.2 });
+}
+}
+
+if (st.flags && st.flags.dimJaw && xMov - xFix > 60) {
+var ym = yJ + hj + 20;
+seg(ctx, xFix, ym, xMov, ym, C.yellow, 1.4, null, 0.9);
+seg(ctx, xFix, ym - 5, xFix, ym + 5, C.yellow, 1.4);
+seg(ctx, xMov, ym - 5, xMov, ym + 5, C.yellow, 1.4);
+txt(ctx, '两爪间距 = 游标 0 线位置 = ' + r.total.toFixed(G.dec) + ' mm',
+(xFix + xMov) / 2, ym + 17, { size: 11.5, color: C.yellow });
+}
+}
+
+function drawCaliper(ctx, W, H, st) {
+var P = window.VizPhys, cfg = P.vcfg(st.div), span = cfg.span;
+var r = P.vernier(st.x, st.div);
+
+var viewMM = P.CAL_XMAX + span + 4;
+var pxmm = (W - 130) / viewMM;
+var drawW = viewMM * pxmm;
+var mL = Math.max(20, (W - drawW) / 2);
+var mR = mL;
+var X = function (mm) { return mL + mm * pxmm; };
+
+var compact = (H < 470) || (W < 560);
+var hasRib = !!(st.flags && st.flags.ribbon);
+if (compact) {
+drawCaliperCompact(ctx, st, r, W, H, mL, mR, X, pxmm, viewMM, cfg);
+return;
+}
+var zH = clamp(H * 0.30, 124, 350);
+var zTop = H - 54 - zH;
+var yTop = 62;
+var avail = zTop - 30 - yTop;
+
+var ribH = hasRib ? clamp(avail * 0.16, 34, 62) : 0;
+var tk = clamp((avail - ribH) * 0.155, 16, 46);
+var yBeamTop = yTop + 16;
+var yM0 = yBeamTop + tk * 1.45 + 4;
+var yV1 = yM0 + tk * 1.45 + tk * 1.62 + 6;
+var yJaw = yV1 + 36;
+var jawBotMax = zTop - 8 - ribH;
+var jawH = clamp(jawBotMax - yJaw, 34, 108);
+
+var G = {
+X: X, pxmm: pxmm, x0: mL, x1: W - mR, mm0: 0, mm1: viewMM, dec: cfg.dec,
+yM0: yM0, yV1: yV1, yBeamTop: yBeamTop, tk: tk,
+yJaw: yJaw, jawH: jawH,
+yRib: yJaw + jawH + ribH * 0.62
+};
+
+head(ctx, W, '游标卡尺 · ' + cfg.k + ' 分度',
+'精度 ' + cfg.precision.toFixed(2) + ' mm　·　游标 ' + cfg.k + ' 格 = 主尺 ' + span + ' mm');
+
+drawCaliperBody(ctx, st, r, G);
+drawScalePair(ctx, st, r, G, { hiAlign: !!(st.flags && st.flags.hiAlign) });
+drawCaliperMarks(ctx, st, r, G);
+if (hasRib) { drawOffsetRibbon(ctx, st, r, G); }
+
+drawZoomStrip(ctx, st, r, W, H, zTop, zH, mL, mR, false);
+
+legend(ctx, W, H - 20, [
+{ t: '主尺读数 ' + r.mainMM + ' mm', c: C.blue },
+{ t: '第 ' + r.idx + ' 条对齐 × ' + cfg.precision + ' mm', c: C.red },
+{ t: '总读数 ' + P.fmtCaliper(r) + ' mm', c: C.yellow }
+]);
+}
+
+function drawCaliperCompact(ctx, st, r, W, H, mL, mR, X, pxmm, viewMM, cfg) {
+var P = window.VizPhys, k = cfg.k;
+var yTop = 40;
+var avail = H - yTop - 16;
+var tk = clamp(avail * 0.16, 11, 26);
+var yBeamTop = yTop + 12;
+var yM0 = yBeamTop + tk * 1.45 + 3;
+var yV1 = yM0 + tk * 1.45 + tk * 1.62 + 4;
+var yJaw = yV1 + 24;
+var jawH = clamp(H - 18 - yJaw, 26, 90);
+
+var G = {
+X: X, pxmm: pxmm, x0: mL, x1: W - mR, mm0: 0, mm1: viewMM, dec: cfg.dec,
+yM0: yM0, yV1: yV1, yBeamTop: yBeamTop, tk: tk,
+yJaw: yJaw, jawH: jawH, yRib: yJaw + jawH
+};
+drawCaliperBody(ctx, st, r, G);
+drawScalePair(ctx, st, r, G, { hiAlign: !!(st.flags && st.flags.hiAlign), fs: 10 });
+drawCaliperMarks(ctx, st, r, G);
+legend(ctx, W, H - 12, [
+{ t: '主尺 ' + r.mainMM, c: C.blue },
+{ t: '第 ' + r.idx + ' 条 ×' + cfg.precision, c: C.red },
+{ t: '读数 ' + P.fmtCaliper(r), c: C.yellow }
+]);
+}
+
+function drawZoomStrip(ctx, st, r, W, H, yTop, h, mL, mR, showRib) {
+var P = window.VizPhys, cfg = P.vcfg(st.div);
+var boxW = W - mL - mR;
+var span = cfg.span;
+var winFull = span + 3.2;
+var winMM = winFull / Math.max(1, st.zoom);
+var cxc = r.x - 0.6 + span / 2;
+var mm0 = cxc - winMM / 2, mm1 = cxc + winMM / 2;
+if (mm0 < -0.8) { mm0 = -0.8; mm1 = mm0 + winMM; }
+if (mm1 > P.CAL_XMAX + span + 0.8) { mm1 = P.CAL_XMAX + span + 0.8; mm0 = mm1 - winMM; }
+var pxmm = boxW / winMM;
+var X = function (mm) { return mL + (mm - mm0) * pxmm; };
+
+box(ctx, mL, yTop, boxW, h, { stroke: C.grey, lw: 1.2, dash: [7, 5] });
+txt(ctx, '放大 ×' + st.zoom.toFixed(1), mL + 10, yTop + 15, { size: 11.5, color: C.grey, align: 'left' });
+txt(ctx, '窗口 ' + mm0.toFixed(1) + ' ~ ' + mm1.toFixed(1) + ' mm　|　1 mm = ' +
+pxmm.toFixed(0) + ' px', mL + boxW - 10, yTop + 15, { size: 11.5, color: C.grey, align: 'right' });
+
+var tk = clamp(h * 0.155, 18, 56);
+var yBeamTop = yTop + 34;
+var yM0 = yBeamTop + tk * 1.45 + 4;
+var yV1 = yM0 + tk * 1.45 + tk * 1.62 + 6;
+var G = {
+X: X, pxmm: pxmm, x0: mL + 1, x1: mL + boxW - 1, mm0: mm0, mm1: mm1,
+yM0: yM0, yV1: yV1, yBeamTop: yBeamTop, tk: tk
+};
+ctx.save();
+ctx.beginPath(); ctx.rect(mL + 1, yTop + 1, boxW - 2, h - 2); ctx.clip();
+G.showAlignLabel = true;
+drawScalePair(ctx, st, r, G, { hiAlign: !!(st.flags && st.flags.hiAlign), big: true, fs: 12.5 });
+drawCaliperMarks(ctx, st, r, G);
+if (showRib) {
+var gr = {
+X: X, pxmm: pxmm, x0: mL + 1, x1: mL + boxW - 1, mm0: mm0, mm1: mm1,
+yRib: Math.min(yTop + h - 34, G.yV1 + 46)
+};
+drawOffsetRibbon(ctx, st, r, gr);
+}
+ctx.restore();
+
+if (st.flags && st.flags.hiAlign) {
+txt(ctx, '第 ' + r.idx + ' 条：残差 ' + r.residual.toFixed(4) + ' mm　（残差 = 0 即完全对齐）',
+mL + boxW / 2, Math.min(yTop + h - 13, yV1 + 58), { size: 12, color: C.yellow, weight: 600 });
+}
+}
+
+function drawMicrometer(ctx, W, H, st) {
+var P = window.VizPhys;
+var r = P.micro(st.x);
+
+var gapL = 112;
+var sleeveW = clamp(W * 0.46, 300, 720);
+var nominalTh = 260;
+var xOff = Math.max(0, (W - (gapL + sleeveW + nominalTh)) / 2);
+var mL = xOff + gapL;
+var mR = 40;
+var sl0 = mL, sl1 = sl0 + sleeveW;
+var pxmm = sleeveW / P.MIC_MAX;
+var X = function (mm) { return sl0 + mm * pxmm; };
+
+var compact = (H < 470) || (W < 560);
+var stripH = compact ? 0 : clamp(H * 0.30, 112, 330);
+var stripTop = H - 52 - stripH;
+var instTop = compact ? 36 : 66, instBot = stripTop - (compact ? 14 : 62);
+var yD = instTop + (instBot - instTop) * 0.50;
+var sleeveHH = clamp((instBot - instTop) * (compact ? 0.42 : 0.30), compact ? 30 : 42, compact ? 60 : 86);
+var thimbleHH = clamp((instBot - instTop) * (compact ? 0.62 : 0.46), compact ? 46 : 70, compact ? 96 : 150);
+
+if (!compact) {
+head(ctx, W, '螺旋测微器 · 螺距 ' + P.MIC_PITCH + ' mm',
+'固定刻度 0.5 mm 一格　·　可动刻度 50 格，每格 0.01 mm　·　读到 0.001 mm');
+} else {
+txt(ctx, '螺旋测微器 · 螺距 0.5 mm', 16, 18, { size: 13, color: C.white, weight: 600, align: 'left' });
+}
+
+var jawBot = yD + thimbleHH + 22;
+ctx.save();
+ctx.strokeStyle = C.white; ctx.lineWidth = 6; ctx.lineCap = 'round';
+ctx.beginPath();
+ctx.moveTo(sl0 - 20, yD - sleeveHH - 10);
+ctx.lineTo(sl0 - 20, jawBot - 56);
+ctx.quadraticCurveTo(sl0 - 20, jawBot, sl0 + 58, jawBot);
+ctx.stroke();
+ctx.restore();
+box(ctx, sl0 - 13, yD - sleeveHH - 4, 14, sleeveHH * 2 + 8, { stroke: C.white, lw: 1.8 });
+
+var t0 = X(r.x);
+var thW = Math.max(200, W - mR - 10 - t0);
+var t1 = t0 + thW;
+box(ctx, sl0, yD - sleeveHH, Math.max(4, t0 - sl0), sleeveHH * 2, { stroke: C.grey, lw: 1.2 });
+
+var m, xp, exposed, isLast, xh, isLastH;
+for (m = 0; m <= P.MIC_MAX; m++) {
+xp = X(m);
+if (m > r.x + 1e-9) { break; }
+isLast = (m + 1 > r.x + 1e-9);
+seg(ctx, xp, yD - sleeveHH * 0.62, xp, yD - 5,
+isLast ? C.blue : C.white, isLast ? 2.4 : 1.4, null, 1);
+txt(ctx, String(m), xp, yD - sleeveHH * 0.62 - 15,
+{ size: 12.5, color: isLast ? C.blue : C.grey, weight: isLast ? 700 : 400 });
+if (m < P.MIC_MAX) {
+xh = X(m + 0.5);
+if (m + 0.5 <= r.x + 1e-9) {
+isLastH = (m + 1.0 > r.x + 1e-9);
+seg(ctx, xh, yD + 5, xh, yD + sleeveHH * 0.48,
+isLastH ? C.blue : C.white, isLastH ? 2.4 : 1.4, null, 1);
+}
+}
+}
+
+var lx = sl0 - 16;
+txt(ctx, '毫米线', lx, yD - sleeveHH * 0.62, { size: 10.5, color: C.grey, align: 'right' });
+seg(ctx, lx + 4, yD - sleeveHH * 0.62, sl0 + 4, yD - sleeveHH * 0.62, C.grey, 1, null, 0.5);
+txt(ctx, '半毫米线', lx, yD + sleeveHH * 0.48, { size: 10.5, color: C.grey, align: 'right' });
+seg(ctx, lx + 4, yD + sleeveHH * 0.48, sl0 + 4, yD + sleeveHH * 0.48, C.grey, 1, null, 0.5);
+
+box(ctx, t0, yD - thimbleHH, thW, thimbleHH * 2, { fill: C.bg });
+ctx.save(); ctx.globalAlpha = 0.045; ctx.fillStyle = C.white;
+ctx.fillRect(t0, yD - thimbleHH, thW, thimbleHH * 2); ctx.restore();
+box(ctx, t0, yD - thimbleHH, thW, thimbleHH * 2, { stroke: C.white, lw: 1.4 });
+
+var kx = t1 - 54, jj, yy;
+ctx.save(); ctx.globalAlpha = 0.38; ctx.strokeStyle = C.grey; ctx.lineWidth = 1;
+for (jj = -20; jj <= 20; jj++) {
+yy = yD + jj * 12;
+if (yy < yD - thimbleHH + 8 || yy > yD + thimbleHH - 8) { continue; }
+ctx.beginPath(); ctx.moveTo(kx, yy); ctx.lineTo(t1 - 8, yy); ctx.stroke();
+}
+ctx.restore();
+
+var gap = clamp(thimbleHH * 2 / 24, 6, 15);
+var dc = r.div + r.est / 10;
+var d, yd, vis, isCur, col2, len;
+for (d = 0; d < P.MIC_DIV; d++) {
+yd = yD - (d - dc) * gap;
+if (yd < yD - thimbleHH + 6 || yd > yD + thimbleHH - 6) { continue; }
+vis = Math.abs(d - dc) < 0.5;
+isCur = (d === r.div);
+col2 = vis ? C.yellow : (isCur ? C.red : C.white);
+len = (d % 5 === 0) ? 22 : 13;
+seg(ctx, t0 + 4, yd, t0 + 4 + len, yd, col2, vis ? 2.4 : (isCur ? 1.8 : 1.1),
+null, (d % 5 === 0 || vis) ? 1 : 0.60);
+if (d % 5 === 0) {
+txt(ctx, String(d), t0 + len + 12, yd, { size: 11.5, color: vis ? C.yellow : C.grey, align: 'left' });
+}
+}
+if (r.est > 0) {
+halo(ctx, t0 + 4, yD, 9, C.gold);
+seg(ctx, t0 - 11, yD, t0 + 4, yD, C.gold, 1.4, [3, 3]);
+}
+
+seg(ctx, sl0, yD, Math.min(t1 - 12, t0 + 150), yD, C.white, 1.8, null, 0.95);
+txt(ctx, '基准线', sl0 + 4, yD + 14, { size: 10.5, color: C.grey, align: 'left' });
+
+seg(ctx, t0, yD - thimbleHH - 14, t0, yD + thimbleHH + 14, C.yellow, 2.4);
+txt(ctx, '读数边', t0, yD - thimbleHH - 27, { size: 11.5, color: C.yellow, weight: 600 });
+
+if (st.flags && st.flags.pitch) {
+var yb2 = jawBot + 12;
+var xa = X(r.fixedMM), xb = X(r.fixedMM + P.MIC_PITCH);
+seg(ctx, xa, yb2, xb, yb2, C.yellow, 1.6);
+seg(ctx, xa, yb2 - 6, xa, yb2 + 6, C.yellow, 1.6);
+seg(ctx, xb, yb2 - 6, xb, yb2 + 6, C.yellow, 1.6);
+txt(ctx, '转 1 圈 → 前进 0.5 mm = 50 格 × 0.01 mm',
+xb + 14, yb2, { size: 12.5, color: C.yellow, weight: 600, align: 'left' });
+}
+
+if (!compact) { drawThimbleStrip(ctx, st, r, W, H, stripTop, stripH, mL, mR); }
+
+legend(ctx, W, H - (compact ? 12 : 20), [
+{ t: '固定 ' + r.fixedMM.toFixed(1), c: C.blue },
+{ t: '可动 ' + r.div + '×0.01+估读 ' + r.est + '×0.001', c: C.red },
+{ t: '读数 ' + P.fmtMicro(r) + ' mm', c: C.yellow }
+]);
+}
+
+function drawThimbleStrip(ctx, st, r, W, H, yTop, h, mL, mR) {
+var P = window.VizPhys;
+var boxW = W - 2 * mL;
+var x0 = mL + 30, x1 = mL + boxW - 30;
+var per = (x1 - x0) / P.MIC_DIV;
+var X = function (d) { return x0 + d * per; };
+
+txt(ctx, '可动刻度展开（把圆周摊平）', mL, yTop - 13, { size: 11.5, color: C.grey, align: 'left' });
+txt(ctx, '每格 0.01 mm　·　基准线指在第 ' + (r.div + r.est / 10).toFixed(1) + ' 格',
+mL + boxW, yTop - 13, { size: 11.5, color: C.grey, align: 'right' });
+box(ctx, mL, yTop, boxW, h, { stroke: C.grey, lw: 1.2, dash: [7, 5] });
+
+var yAxis = yTop + h * 0.52;
+var tickBig = Math.min(h * 0.24, 46);
+var tickSml = tickBig * 0.52;
+var d, xp, isCur, col, hh;
+
+seg(ctx, x0 - per * 0.5, yAxis, x1 + per * 0.5, yAxis, C.white, 1.5, null, 0.85);
+
+for (d = 0; d < P.MIC_DIV; d++) {
+xp = X(d);
+isCur = (d === r.div);
+col = isCur ? C.red : C.white;
+hh = (d % 5 === 0) ? tickBig : tickSml;
+seg(ctx, xp, yAxis, xp, yAxis - hh, col, isCur ? 2.2 : (d % 5 === 0 ? 1.4 : 1),
+null, isCur ? 1 : (d % 5 === 0 ? 0.9 : 0.55));
+if (d % 5 === 0) {
+txt(ctx, String(d), xp, yAxis + 16, { size: 11.5, color: isCur ? C.red : C.grey, weight: isCur ? 700 : 400 });
+}
+}
+
+var xp2 = X(r.div) + per * (r.est / 10);
+seg(ctx, xp2, yAxis - tickBig - 26, xp2, yAxis + 30, C.yellow, 2.2);
+dot(ctx, xp2, yAxis - tickBig - 26, 4, C.yellow);
+txt(ctx, '基准线', xp2, yAxis - tickBig - 40, { size: 11.5, color: C.yellow, weight: 600 });
+halo(ctx, xp2, yAxis - tickBig * 0.5, 15, C.yellow);
+
+var yBar = yTop + h - 26;
+var segs = [
+{ w: r.fixedMM / P.MIC_MAX, t: '固定刻度 ' + r.fixedMM.toFixed(1) + ' mm', c: C.blue },
+{ w: (r.div * 0.01) / P.MIC_MAX, t: r.div + ' × 0.01 = ' + (r.div * 0.01).toFixed(2), c: C.red },
+{ w: (r.est * 0.001) / P.MIC_MAX, t: '估读 ' + r.est + ' × 0.001', c: C.gold }
+];
+var bw = boxW - 60, bx = mL + 30, i, w2;
+for (i = 0; i < segs.length; i++) {
+w2 = Math.max(3, bw * segs[i].w);
+ctx.save(); ctx.globalAlpha = 0.30; ctx.fillStyle = segs[i].c;
+ctx.fillRect(bx, yBar - 9, w2, 14); ctx.restore();
+box(ctx, bx, yBar - 9, w2, 14, { stroke: segs[i].c, lw: 1.2 });
+bx += w2 + 5;
+}
+txt(ctx, '三段相加 = ' + P.fmtMicro(r) + ' mm', mL + boxW - 30, yBar - 2,
+{ size: 13, color: C.yellow, weight: 700, align: 'right' });
+
+var yLab = yBar + 20, lx2 = mL + 30;
+for (i = 0; i < segs.length; i++) {
+w2 = Math.max(3, bw * segs[i].w);
+if (w2 > 76) { txt(ctx, segs[i].t, lx2 + w2 / 2, yLab, { size: 11.5, color: segs[i].c }); }
+lx2 += w2 + 5;
+}
+txt(ctx, segs[2].t, mL + boxW - 30, yLab, { size: 11.5, color: segs[2].c, align: 'right' });
+}
+
+function drawCompare(ctx, W, H, st) {
+head(ctx, W, '两种量具 · 一张表带走', '');
+var rows = [
+['', '游标卡尺', '螺旋测微器'],
+['读数原理', 'k 格 ÷ k 份，主尺与游标错开 1/k', '螺旋放大：转 1 圈前进 0.5 mm'],
+['分度 / 精度', '10 分度 0.1｜20 分度 0.05｜50 分度 0.02 mm', '50 格，每格 0.01 mm'],
+['怎么读', '主尺整毫米 + 第 n 条对齐线 × 精度', '固定刻度 + 可动刻度格数 × 0.01 + 估读'],
+['估读吗', '不估读（精度已到分度值）', '要估读一位，读到 0.001 mm'],
+['量程（常见）', '0 ~ 150 mm', '0 ~ 25 mm'],
+['谁更准', '0.02 mm', '0.001 mm —— 高一个数量级']
+];
+var top = clamp(H * 0.10, 76, 110);
+var rh = clamp((H - top - 96) / rows.length, 34, 68);
+var c0 = 44, c1 = c0 + clamp(W * 0.13, 110, 190);
+var cw = (W - c1 - 44) / 2;
+var i, j;
+
+ctx.save();
+ctx.strokeStyle = C.grey; ctx.lineWidth = 1; ctx.globalAlpha = 0.30;
+for (i = 0; i <= rows.length; i++) {
+ctx.beginPath(); ctx.moveTo(c0, top + i * rh); ctx.lineTo(W - 44, top + i * rh); ctx.stroke();
+}
+ctx.restore();
+
+for (i = 0; i < rows.length; i++) {
+var yc = top + i * rh + rh / 2;
+if (i === 0) {
+txt(ctx, rows[i][1], c1 + cw / 2, yc, { size: 16, color: C.blue, weight: 700 });
+txt(ctx, rows[i][2], c1 + cw * 1.5, yc, { size: 16, color: C.red, weight: 700 });
+} else {
+txt(ctx, rows[i][0], c0 + 4, yc, { size: 13, color: C.grey, align: 'left' });
+txt(ctx, rows[i][1], c1 + cw / 2, yc, { size: 13, color: C.white });
+txt(ctx, rows[i][2], c1 + cw * 1.5, yc, { size: 13, color: C.white });
+}
+}
+for (j = 1; j <= 2; j++) {
+seg(ctx, c1 + j * cw, top, c1 + j * cw, top + rows.length * rh, C.grey, 1, null, 0.30);
+}
+conclusion(ctx, 44, top + rows.length * rh + 42,
+'同一把尺：卡尺看「哪条线对齐」，测微器看「转过多少格」。', 18);
+}
+
+function draw(ctx, W, H, st) {
+ctx.save();
+ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+ctx.restore();
+if (st.inst === 'compare') { drawCompare(ctx, W, H, st); }
+else if (st.inst === 'micrometer') { drawMicrometer(ctx, W, H, st); }
+else { drawCaliper(ctx, W, H, st); }
+}
+
+return { draw: draw, C: C, FONT: FONT, txt: txt, seg: seg, box: box };
+})();
+
+
+
+window.VizSteps = (function () {
+'use strict';
+var P = window.VizPhys;
+
+function base() {
+return {
+step: 0, act: '', title: '', hint: '', note: '', formula: '',
+allow: {}, rng: {},
+inst: 'caliper',
+div: 10, x: 7.3,
+flags: {
+object: true, dimJaw: false, ribbon: false, hiAlign: false,
+pitch: false, zero: false
+},
+zoom: 1, focus: null,
+quiz: null,
+view: { az: 0, el: 0, zoom: 1 }
+};
+}
+
+var A1 = '第一幕 · 游标卡尺读数';
+var A2 = '第二幕 · 螺旋测微器读数';
+var A3 = '第三幕 · 卡尺原理：错位放大';
+var A4 = '第四幕 · 测微器原理：螺旋放大';
+var A5 = '第五幕 · 练习与总结';
+
+var STEPS = [
+
+{
+act: A1, title: '把游标尺拖到任意位置，先看三个数怎么分工',
+hint: '直接拖画布上的 <b>游标尺</b>；或拖底栏 <b>「游标零线位置」</b>滑杆。放大条会跟着走',
+note: '卡尺有两个刻度：上面白的是<b>主尺</b>（每格 1 mm），下面的是<b>游标尺</b>（10 格只占 9 mm）。<br>' +
+'读数的规矩：<b>主尺读到游标 0 线左边那一条</b>，整数毫米；小数由<b>对齐线</b>给。',
+formula: '读数 = 主尺整毫米 + 对齐线序号 × 精度',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 4, 0.5] },
+inst: 'caliper', div: 10,
+flags: { object: true, hiAlign: true },
+init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 1; }
+},
+{
+act: A1, title: '读第一段：主尺读数 —— 只看游标 0 线左边',
+hint: '拖 <b>「游标零线位置」</b>，看黄色虚线（游标 0 线）扫过主尺的哪一格，右边第一栏读数就变',
+note: '先把游标 0 线当指针。<b>它左边最近的那条主尺刻度</b>就是主尺读数 —— 只取整数毫米，<b>小数先不管</b>。' +
+'这一步的意义：把"量长度"拆成"先数整格、再量零头"。',
+formula: '主尺读数 L = 游标 0 线左边最近的主尺刻度（整毫米）',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 4, 0.5] },
+inst: 'caliper', div: 10,
+flags: { object: true, hiAlign: true, dimJaw: true },
+init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 1; }
+},
+{
+act: A1, title: '读第二段：找对齐线 —— 哪一条游标线正好压在主尺线上',
+hint: '拖 <b>「游标零线位置」</b>，盯住放大条：总有一条游标线（黄色高亮）压在主尺线上',
+note: '游标尺上<b>总有一条</b>刻度线与主尺的某条线严格对齐 —— 这是游标原理保证的（下一幕证明）。' +
+'数一数它是第几条（从游标 0 线数起，0 线不算）。',
+formula: '第 n 条游标线与主尺第 (L + n) 条线对齐',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 4, 0.5] },
+inst: 'caliper', div: 10,
+flags: { object: true, hiAlign: true, ribbon: true },
+init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 1; }
+},
+{
+act: A1, title: '两段相加：读数 = 主尺 + n × 精度',
+hint: '拖 <b>「游标零线位置」</b>读几个位置；点 <b>「随机出题」</b>换一题自己读，读不出来点 <b>「显示答案」</b>',
+note: '10 分度的精度是 <b>0.1 mm</b>。为什么是 0.1 而不是更小？因为游标把 9 mm 均分成 10 份，' +
+'每份 0.9 mm，与主尺每格 1 mm 差 <b>0.1 mm</b> —— 这个"差"就是精度。',
+formula: '读数 = L + n × 0.1 mm　（10 分度）',
+allow: { x: true, div: true, zoom: true, drag: true, quiz: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 4, 0.5] },
+inst: 'caliper', div: 10,
+flags: { object: true, hiAlign: true },
+init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 2; }
+},
+
+{
+act: A2, title: '换螺旋测微器：拖微分筒，看两处刻度一起动',
+hint: '拖 <b>「微分筒位置」</b>滑杆：左边固定刻度一条条露出来，右边可动刻度一格格转过去',
+note: '螺旋测微器有两个刻度：<b>固定刻度</b>在套筒上（主尺，1 mm 一格，中间还有半毫米线），' +
+'<b>可动刻度</b>在微分筒上（50 格）。转动微分筒，两个刻度<b>同时</b>在变。',
+formula: '读数 = 固定刻度 + 可动刻度格数 × 0.01 mm',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 4, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 5.96; st.zoom = 1; }
+},
+{
+act: A2, title: '读第一段：固定刻度 —— 别漏了那条半毫米线',
+hint: '拖 <b>「微分筒位置」</b>，慢慢经过 3.0、3.5、4.0 mm：半毫米线露出来的那一瞬，可动刻度正好归零',
+note: '固定刻度上有两种线：<b>上面是毫米线</b>，<b>下面是半毫米线</b>。最容易错的地方就是半毫米线已经露出来了却当没看见 —— ' +
+'少读 0.5 mm 是这一课的头号错误。',
+formula: '固定刻度 = 露出的最后一条线（含半毫米线）',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 4, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 4.5; st.zoom = 1; }
+},
+{
+act: A2, title: '读第二段：可动刻度格数 × 0.01 mm',
+hint: '拖 <b>「微分筒位置」</b>做微小移动（步长 0.001 mm 更细），看基准线在格与格之间走到哪',
+note: '基准线（套筒上那条横线）对着可动刻度的第几格，就是多少个 <b>0.01 mm</b>。' +
+'这一位是"读"出来的，不是估的 —— 50 格均匀分布，每一格都画着。',
+formula: '可动刻度读数 = 格数 × 0.01 mm',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 4, 0.5] },
+inst: 'micrometer',
+flags: { pitch: false },
+init: function (st) { st.x = 5.96; st.zoom = 2; }
+},
+{
+act: A2, title: '第三位：估读 —— 基准线落在两格之间怎么办',
+hint: '用 <b>「−0.001 / +0.001」</b>按钮微调，看最后一位怎么变；再点 <b>「随机出题」</b>练几道',
+note: '基准线很少正好压在格线上。它落在两格之间的第几成，就估读几个 <b>0.001 mm</b>。' +
+'注意：<b>螺旋测微器必须估读</b>，最后一位是估的；而游标卡尺<b>不估读</b> —— 这是两种量具最大的差别。',
+formula: '读数 = 固定刻度 + 格数 × 0.01 + 估读 × 0.001 mm',
+allow: { x: true, zoom: true, drag: true, quiz: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 4, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 3.782; st.zoom = 2; }
+},
+
+{
+act: A3, title: '原理①：游标把 9 mm 均分成 10 份，每份 0.9 mm',
+hint: '拖 <b>「游标零线位置」</b>，看下面差值带：第 n 条游标线偏离主尺刻度 n × 0.1 mm',
+note: '这是游标卡尺的<b>全部秘密</b>：主尺每格 1 mm，游标每格 0.9 mm，两者<b>每往右一格就差 0.1 mm</b>。' +
+'差值带里那些短线，就是"第 n 条游标线离主尺刻度差多少"的可视化 —— 第 1 条差 0.1，第 2 条差 0.2……',
+formula: '游标每格 = (k−1)/k mm　→　与主尺每格差 1/k mm',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 5, 0.5] },
+inst: 'caliper', div: 10,
+flags: { ribbon: true, hiAlign: true, dimJaw: true },
+init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 2.5; }
+},
+{
+act: A3, title: '原理②：总有一条线对齐 —— 差值累积到 1 mm 就被"吃掉"',
+hint: '拖 <b>「游标零线位置」</b>让它慢慢移动：对齐线会一条一条地往后跳',
+note: '游标 0 线在 L 和 L+1 之间时，第 n 条线的偏差是 (小数部分 − n/k)。' +
+'当 n 增加到让这个偏差最接近 0 时，那条线就<b>看起来完全对齐</b> —— 其余各条都明显错开。' +
+'这就是"总有一条对齐"的原因，也是为什么对齐线序号直接给出小数。',
+formula: '偏差 = 小数部分 − n/k　→　最接近 0 的那条就是对齐线',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [2, 5, 0.5] },
+inst: 'caliper', div: 20,
+flags: { ribbon: true, hiAlign: true },
+init: function (st) { st.div = 20; st.x = 6.55; st.zoom = 3; }
+},
+{
+act: A3, title: '原理③：换分度 —— 精度是怎么从 0.1 变成 0.05、0.02 的',
+hint: '点 <b>「10 / 20 / 50 分度」</b>切换，看游标格数、精度、末位小数同时变',
+note: '分度越多，游标格与主尺格的差越小：<br>' +
+'<b>10 分度</b>：10 格占 9 mm → 每格差 1/10 mm = 0.1 mm<br>' +
+'<b>20 分度</b>：20 格占 19 mm → 差 1/20 mm = 0.05 mm<br>' +
+'<b>50 分度</b>：50 格占 49 mm → 差 1/50 mm = 0.02 mm<br>' +
+'代价是游标越来越长、刻度越来越密，所以 50 分度要配放大镜。',
+formula: '精度 = 1 mm ÷ 分度数　（10→0.1　20→0.05　50→0.02）',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 5, 0.5] },
+inst: 'caliper', div: 50,
+flags: { ribbon: true, hiAlign: true },
+init: function (st) { st.div = 50; st.x = 3.8; st.zoom = 3; }
+},
+{
+act: A3, title: '原理④：不估读的理由 —— 精度已经是分度值的下一级',
+hint: '拖 <b>「游标零线位置」</b>做极微小移动（步长 0.02 mm），看对齐线在两条线之间来回换',
+note: '游标卡尺的精度（0.02 mm）本身就是它<b>能分辨的最小量</b>，再往下估读没有依据 —— ' +
+'刻度线的宽度、眼睛的分辨都撑不住。所以卡尺<b>不估读</b>，读到精度那一位为止。' +
+'这正是它和螺旋测微器（要估读到 0.001）的分水岭。',
+formula: '卡尺：读到精度位为止（不估读）　｜　测微器：读到 0.001 mm（要估读）',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [3, 6, 0.5] },
+inst: 'caliper', div: 50,
+flags: { ribbon: true, hiAlign: true },
+init: function (st) { st.div = 50; st.x = 3.8; st.zoom = 4; }
+},
+
+{
+act: A4, title: '原理①：转一圈前进 0.5 mm，这一圈被分成 50 格',
+hint: '拖 <b>「微分筒位置」</b>看整圈转动：可动刻度转完 50 格，固定刻度恰好前进 0.5 mm',
+note: '螺旋放大的核心：<b>圆周上的一小段，对应轴向上的一小段</b>。把 0.5 mm 摊到 50 格上，' +
+'每格就代表 0.01 mm —— 圆周上容易分辨的 1/50，换来了轴向上 0.01 mm 的分辨率。',
+formula: '螺距 0.5 mm ÷ 50 格 = 0.01 mm/格',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 4, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 5.96; st.zoom = 1.5; }
+},
+{
+act: A4, title: '原理②：圆周 → 轴向，放大倍数 = 圆周长度 ÷ 螺距',
+hint: '拖 <b>「微分筒位置」</b>：轴向只挪一点点，可动刻度已经转过好几格',
+note: '微分筒一圈的周长约 <b>30 mm</b>（直径 10 mm 左右），而它对应的轴向位移只有 0.5 mm —— ' +
+'相当于把轴向位移<b>放大 60 倍</b>再让你读。所以螺旋测微器能比卡尺精细一个数量级。',
+formula: '放大比 ≈ 圆周 30 mm ÷ 螺距 0.5 mm ≈ 60 倍',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [2, 5, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 4.5; st.zoom = 3; }
+},
+{
+act: A4, title: '原理③：半毫米线的存在，让"露不露"变成一道判断题',
+hint: '拖 <b>「微分筒位置」</b>跨过 4.5、5.0、5.5 mm：每次半毫米线露出的瞬间，可动刻度都在 0 附近',
+note: '因为螺距是 0.5 mm，微分筒转满一圈（50 格）固定刻度才前进 0.5 mm，所以固定刻度上要画半毫米线。' +
+'判读口诀：<b>先看半毫米线露没露，再看可动刻度到没到 50</b>。两个信息互相印证，缺一个就错 0.5 mm。',
+formula: '半毫米线露出 ⇔ 可动刻度已转过 0 格（读数的小数部分 ≥ 0.5 mm）',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [2, 5, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 5.96; st.zoom = 3; }
+},
+
+{
+act: A5, title: '练习①：游标卡尺读数（自己读，再核对）',
+hint: '点 <b>「随机出题」</b>换题；在右栏 <b>「你的读数」</b>里填答案，回车或点 <b>「核对」</b>',
+note: '读法回顾：① 定分度 → ② 读主尺整毫米（游标 0 线左边）→ ③ 数对齐线序号 → ' +
+'④ 序号 × 精度 → ⑤ 相加。<b>不估读</b>，小数位数 = 精度的小数位数。',
+formula: '读数 = 主尺 + 对齐线序号 × 精度',
+allow: { x: true, div: true, zoom: true, drag: true, quiz: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 5, 0.5] },
+inst: 'caliper', div: 20,
+flags: { object: true, hiAlign: true },
+init: function (st) { st.div = 20; st.x = 6.55; st.zoom = 2; st.quiz = { on: true, seed: 11 }; }
+},
+{
+act: A5, title: '练习②：螺旋测微器读数（自己读，再核对）',
+hint: '点 <b>「随机出题」</b>换题；填三位小数（含估读位），点 <b>「核对」</b>看哪一段错了',
+note: '读法回顾：① 看半毫米线露没露 → ② 读固定刻度 → ③ 数可动刻度格数 → ' +
+'④ 格数 × 0.01 → ⑤ 估读最后一位（0.001 mm）。<b>必须估读</b>，写成三位小数。',
+formula: '读数 = 固定刻度 + 格数 × 0.01 + 估读 × 0.001',
+allow: { x: true, zoom: true, drag: true, quiz: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 5, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true },
+init: function (st) { st.x = 3.782; st.zoom = 2; st.quiz = { on: true, seed: 23 }; }
+},
+{
+act: A5, title: '一张表带走：两种量具的分工',
+hint: '最后一步，不用拖 —— 记住这张表：<b>看哪条线对齐</b> vs <b>转过多少格</b>',
+note: '共同点：都是"主尺给整数、副尺给小数"。<br>' +
+'不同点：卡尺靠<b>错位</b>（每格差 1/k mm），测微器靠<b>螺旋</b>（圆周换轴向）；' +
+'卡尺不估读、测微器要估读；精度差一个数量级。',
+formula: '卡尺 0.02 mm　｜　测微器 0.001 mm',
+allow: {},
+rng: {},
+inst: 'compare',
+flags: {},
+init: function (st) {}
+}
+];
+
+function apply(st, i) {
+i = Math.max(0, Math.min(STEPS.length - 1, i));
+var d = STEPS[i], k, b = base();
+for (k in b) { if (Object.prototype.hasOwnProperty.call(b, k)) { st[k] = b[k]; } }
+st.flags = { object: true, dimJaw: false, ribbon: false, hiAlign: false,
+pitch: false, zero: false };
+if (d.init) { d.init(st); }
+st.step = i;
+st.act = d.act; st.title = d.title;
+st.hint = d.hint || ''; st.note = d.note || '';
+st.formula = d.formula || '';
+st.allow = d.allow || {};
+st.rng = d.rng || {};
+st.inst = d.inst || 'caliper';
+st.div = d.div || st.div || 10;
+var f = d.flags || {};
+for (k in f) { if (Object.prototype.hasOwnProperty.call(f, k)) { st.flags[k] = f[k]; } }
+return st;
+}
+
+return { STEPS: STEPS, baseState: base, apply: apply };
+})();
+
+
+
+(function () {
+'use strict';
+var P = window.VizPhys, R = window.VizRender, S = window.VizSteps;
+
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d', { willReadFrequently: true });
+var st = S.baseState();
+var W = 0, H = 0;
+var drag = null;
+var quizGot = null, quizMsg = null, quizShown = false;
+
+function fitCanvas() {
+var wrap = cv.parentElement;
+var w = Math.max(320, Math.floor(wrap.clientWidth - 16));
+var h = Math.max(240, Math.floor(wrap.clientHeight - 6));
+if (w === W && h === H) { return false; }
+W = w; H = h;
+var dpr = Math.min(2, window.devicePixelRatio || 1);
+cv.width = Math.floor(w * dpr);
+cv.height = Math.floor(h * dpr);
+cv.style.width = w + 'px';
+cv.style.height = h + 'px';
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+return true;
+}
+
+function currentAnswer() {
+if (st.inst === 'micrometer') { return P.micro(st.x); }
+return P.vernier(st.x, st.div);
+}
+function answerText() {
+var a = currentAnswer();
+return st.inst === 'micrometer' ? P.fmtMicro(a) : P.fmtCaliper(a);
+}
+function newQuiz() {
+if (st.inst === 'micrometer') {
+st.x = P.newMicroS(Math.floor(Math.random() * 1e9));
+} else {
+st.x = P.newCaliperS(st.div, Math.floor(Math.random() * 1e9));
+}
+quizGot = null; quizMsg = null; quizShown = false;
+var inp = document.getElementById('quizIn');
+if (inp) { inp.value = ''; }
+}
+function checkQuiz() {
+var inp = document.getElementById('quizIn');
+if (!inp) { return; }
+var v = parseFloat(String(inp.value).replace(/[^\d.\-]/g, ''));
+var a = currentAnswer();
+var d = (st.inst === 'micrometer') ? P.diagnoseMicro(v, a) : P.diagnoseCaliper(v, a);
+quizGot = v; quizMsg = d; quizShown = false;
+updatePanel();
+draw();
+}
+
+function setTxt(id, v, cls) {
+var el = document.getElementById(id);
+if (!el) { return; }
+el.textContent = v;
+el.className = cls || '';
+}
+
+function updatePanel() {
+var rd1 = document.getElementById('rdGroup1');
+var rd2 = document.getElementById('rdGroup2');
+var h1 = document.getElementById('rdHead1');
+var h2 = document.getElementById('rdHead2');
+var tot = document.querySelector('.total');
+var a = currentAnswer();
+var isMic = (st.inst === 'micrometer');
+
+if (st.inst === 'compare') {
+h1.textContent = '游标卡尺';
+h2.textContent = '螺旋测微器';
+rd1.innerHTML = '<div class="rd"><span>精度</span><b class="blue">0.02 mm</b></div>' +
+'<div class="rd"><span>读法</span><b>主尺 + 对齐线序号 × 精度</b></div>' +
+'<div class="rd"><span>估读</span><b class="blue">不估读</b></div>' +
+'<div class="rd"><span>量程（常见）</span><b>0 ~ 150 mm</b></div>';
+rd2.innerHTML = '<div class="rd"><span>精度</span><b class="red">0.001 mm</b></div>' +
+'<div class="rd"><span>读法</span><b>固定刻度 + 格数 × 0.01 + 估读</b></div>' +
+'<div class="rd"><span>估读</span><b class="red">要估读一位</b></div>' +
+'<div class="rd"><span>量程（常见）</span><b>0 ~ 25 mm</b></div>';
+tot.classList.add('hidden');
+document.getElementById('rdFormula').textContent = st.formula;
+document.getElementById('rdNote').innerHTML = st.note;
+document.getElementById('quizPane').classList.add('hidden');
+return;
+}
+tot.classList.remove('hidden');
+
+h1.textContent = isMic ? '固定刻度（主尺）' : '主尺读数';
+h2.textContent = isMic ? '可动刻度（微分筒）' : '游标尺读数';
+
+if (isMic) {
+rd1.innerHTML =
+'<div class="rd"><span>露出的最后一条</span><b class="blue">' + a.fixedMM.toFixed(1) + ' mm</b></div>' +
+'<div class="rd"><span>含半毫米线</span><b class="grey">' + (a.half % 2 === 1 ? '已露出' : '未露出') + '</b></div>' +
+'<div class="rd"><span>基准线对着第几格</span><b>' + a.div + ' 格</b></div>' +
+'<div class="rd"><span>格数 × 0.01 mm</span><b class="red">' + a.movableMM.toFixed(2) + ' mm</b></div>' +
+'<div class="rd"><span>估读（第几位小数）</span><b class="gold">' + a.est + ' × 0.001 mm</b></div>';
+rd2.innerHTML =
+'<div class="rd"><span>微分筒相位</span><b>' + (a.phase * 360).toFixed(0) + '°</b></div>' +
+'<div class="rd"><span>螺距</span><b>' + P.MIC_PITCH + ' mm / 圈</b></div>' +
+'<div class="rd"><span>可动刻度总格数</span><b>' + P.MIC_DIV + ' 格</b></div>' +
+'<div class="rd"><span>是否要估读</span><b class="yellow">要，读到 0.001 mm</b></div>';
+} else {
+var cfg = P.vcfg(st.div);
+rd1.innerHTML =
+'<div class="rd"><span>分度</span><b class="blue">' + st.div + ' 分度</b></div>' +
+'<div class="rd"><span>精度</span><b class="blue">' + cfg.precision.toFixed(2) + ' mm</b></div>' +
+'<div class="rd"><span>游标 ' + st.div + ' 格占主尺</span><b>' + cfg.span + ' mm</b></div>' +
+'<div class="rd"><span>主尺读数 L</span><b class="blue">' + a.mainMM + ' mm</b></div>';
+rd2.innerHTML =
+'<div class="rd"><span>对齐线序号 n</span><b class="red">第 ' + a.idx + ' 条</b></div>' +
+'<div class="rd"><span>n × 精度</span><b class="red">' + a.vernierMM.toFixed(cfg.dec) + ' mm</b></div>' +
+'<div class="rd"><span>对齐残差</span><b class="grey">' + a.residual.toFixed(4) + ' mm</b></div>' +
+'<div class="rd"><span>是否要估读</span><b class="yellow">不估读</b></div>';
+}
+
+document.getElementById('rdTotal').textContent = answerText() + ' mm';
+document.getElementById('rdFormula').textContent = st.formula;
+document.getElementById('rdNote').innerHTML = st.note;
+
+var qp = document.getElementById('quizPane');
+var showQuiz = !!(st.allow && st.allow.quiz);
+qp.classList.toggle('hidden', !showQuiz);
+if (showQuiz) {
+var qm = document.getElementById('quizMsg');
+if (quizMsg) {
+qm.className = 'qmsg ' + (quizMsg.ok ? 'ok' : 'bad');
+qm.textContent = quizMsg.msg;
+} else {
+qm.className = 'qmsg';
+qm.textContent = '在下面填你的读数，然后点「核对」。';
+}
+var an = document.getElementById('quizAns');
+an.classList.toggle('hidden', !quizShown);
+an.textContent = quizShown ? ('正确答案：' + answerText() + ' mm') : '';
+var dec = (st.inst === 'micrometer') ? 3 : P.vcfg(st.div).dec;
+document.getElementById('quizDec').textContent = (st.inst === 'micrometer')
+? '填三位小数（含估读位）'
+: ('填 ' + dec + ' 位小数（精度 ' + P.vcfg(st.div).precision.toFixed(2) + ' mm）');
+}
+}
+
+var SLIDERS = {
+x: { id: 'rgX', lb: 'lbX', label: function () { return st.inst === 'micrometer' ? '微分筒位置' : '游标零线位置'; } },
+div: { id: 'rgDiv', lb: 'lbDiv', label: function () { return '分度'; } },
+zoom: { id: 'rgZoom', lb: 'lbZoom', label: function () { return '放大倍数'; } }
+};
+
+function buildControls() {
+var i, k, def, el;
+
+for (k in SLIDERS) {
+if (!Object.prototype.hasOwnProperty.call(SLIDERS, k)) { continue; }
+def = SLIDERS[k];
+el = document.getElementById('wrap_' + k);
+if (!el) { continue; }
+var on = !!(st.allow && st.allow[k]);
+el.classList.toggle('hidden', !on);
+if (on && st.rng && st.rng[k]) {
+var rg = document.getElementById(def.id);
+rg.min = st.rng[k][0]; rg.max = st.rng[k][1]; rg.step = st.rng[k][2];
+rg.value = st[k];
+}
+}
+
+var wd = document.getElementById('wrapDivBtn');
+wd.classList.toggle('hidden', !(st.allow && st.allow.div));
+var bs = wd.querySelectorAll('button');
+for (i = 0; i < bs.length; i++) {
+bs[i].classList.toggle('on', parseInt(bs[i].dataset.div, 10) === st.div);
+}
+
+var wq = document.getElementById('wrapQuizBtn');
+wq.classList.toggle('hidden', !(st.allow && st.allow.quiz));
+
+var wf = document.getElementById('wrapFine');
+var fineOn = !!(st.allow && st.allow.x) && st.inst === 'micrometer';
+wf.classList.toggle('hidden', !fineOn);
+
+var lab = document.getElementById('lbXLab');
+if (lab) { lab.textContent = (st.inst === 'micrometer') ? '微分筒位置' : '游标零线位置'; }
+setTxt('lbX', sliderText(), '');
+setTxt('lbZoom', '×' + st.zoom.toFixed(1), '');
+setTxt('lbDiv', st.div + ' 分度', '');
+}
+
+function sliderText() {
+if (st.inst === 'micrometer') { return st.x.toFixed(3) + ' mm'; }
+return st.x.toFixed(2) + ' mm';
+}
+
+function syncSliders() {
+var el = document.getElementById('rgX');
+if (el && st.allow && st.allow.x) { el.value = st.x; }
+el = document.getElementById('rgZoom');
+if (el && st.allow && st.allow.zoom) { el.value = st.zoom; }
+}
+
+function buildToc() {
+var nav = document.getElementById('toc');
+var html = '', lastAct = '', i, d;
+for (i = 0; i < S.STEPS.length; i++) {
+d = S.STEPS[i];
+if (d.act !== lastAct) {
+if (lastAct) { html += '<span class="sep"></span>'; }
+html += '<span class="grouplab">' + d.act.split(' · ')[0] + '</span>';
+lastAct = d.act;
+}
+html += '<a data-go="' + i + '" title="' + esc(d.title) + '">' + (i + 1) + '</a>';
+}
+nav.innerHTML = html;
+nav.addEventListener('click', function (e) {
+var a = e.target.closest ? e.target.closest('a[data-go]') : null;
+if (a) { goto(parseInt(a.dataset.go, 10)); }
+});
+}
+function markToc() {
+var as = document.querySelectorAll('#toc a');
+for (var i = 0; i < as.length; i++) {
+as[i].classList.toggle('on', parseInt(as[i].dataset.go, 10) === st.step);
+}
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+/* ===================== 绘制 ===================== */
+function draw() {
+updatePanel();
+markToc();
+buildControls();
+fitCanvas();
+R.draw(ctx, W, H, st);
+document.getElementById('actTag').textContent = st.act;
+document.getElementById('stepTitle').textContent = st.title;
+document.getElementById('stepSn').textContent = (st.step + 1) + ' / ' + S.STEPS.length;
+document.getElementById('hint').innerHTML = st.hint;
+var pr = document.getElementById('prog');
+pr.firstElementChild.style.width = ((st.step + 1) / S.STEPS.length * 100) + '%';
+}
+
+/* ===================== 步骤机 ===================== */
+function goto(i) {
+S.apply(st, i);
+quizGot = null; quizMsg = null; quizShown = false;
+var inp = document.getElementById('quizIn');
+if (inp) { inp.value = ''; }
+if (st.quiz && st.quiz.on) { st.x = (st.inst === 'micrometer') ? P.newMicroS(st.quiz.seed) : P.newCaliperS(st.div, st.quiz.seed); }
+draw();
+syncSliders();
+}
+function next() { if (st.step < S.STEPS.length - 1) { goto(st.step + 1); } }
+function prev() { if (st.step > 0) { goto(st.step - 1); } }
+
+/* ===================== 交互 ===================== */
+function bind() {
+document.getElementById('btnPrev').onclick = prev;
+document.getElementById('btnNext').onclick = next;
+document.getElementById('btnReset').onclick = function () { goto(st.step); };
+
+document.getElementById('toc');
+
+var rgX = document.getElementById('rgX');
+rgX.addEventListener('input', function () {
+st.x = parseFloat(rgX.value);
+quizGot = null; quizMsg = null;
+updatePanel(); buildControls(); R.draw(ctx, W, H, st);
+});
+var rgZoom = document.getElementById('rgZoom');
+rgZoom.addEventListener('input', function () {
+st.zoom = parseFloat(rgZoom.value);
+updatePanel(); buildControls(); R.draw(ctx, W, H, st);
+});
+
+var wd = document.getElementById('wrapDivBtn');
+wd.addEventListener('click', function (e) {
+var b = e.target.closest ? e.target.closest('button[data-div]') : null;
+if (!b) { return; }
+var oldDiv = st.div, nd = parseInt(b.dataset.div, 10);
+if (nd === oldDiv) { return; }
+/* 换分度时保持「对齐线序号比例」不变，位置仍能完美对齐 */
+var a0 = P.vernier(st.x, oldDiv);
+st.div = nd;
+st.x = P.newCaliperS(nd, Math.floor(st.x * 1000) + nd * 7919);
+if (st.x < 0.2) { st.x = 0.2; }
+quizGot = null; quizMsg = null;
+draw(); syncSliders();
+});
+
+document.getElementById('btnQuizNew').onclick = function () { newQuiz(); draw(); syncSliders(); };
+document.getElementById('btnQuizCheck').onclick = checkQuiz;
+document.getElementById('btnQuizAns').onclick = function () { quizShown = !quizShown; updatePanel(); };
+document.getElementById('quizIn').addEventListener('keydown', function (e) {
+if (e.key === 'Enter') { checkQuiz(); }
+});
+
+/* 微调按钮 */
+var wf = document.getElementById('wrapFine');
+wf.addEventListener('click', function (e) {
+var b = e.target.closest ? e.target.closest('button[data-d]') : null;
+if (!b) { return; }
+st.x = Math.max(0, Math.min(P.MIC_MAX, st.x + parseFloat(b.dataset.d)));
+st.x = Math.round(st.x * 1000) / 1000;
+quizGot = null; quizMsg = null;
+updatePanel(); buildControls(); syncSliders(); R.draw(ctx, W, H, st);
+});
+
+/* 画布拖拽 */
+cv.addEventListener('pointerdown', function (e) {
+if (!(st.allow && st.allow.drag)) { return; }
+drag = { x: e.clientX };
+cv.setPointerCapture(e.pointerId);
+cv.style.cursor = 'grabbing';
+});
+cv.addEventListener('pointermove', function (e) {
+if (!drag) { return; }
+var dx = e.clientX - drag.x;
+drag.x = e.clientX;
+var perPx;
+if (st.inst === 'micrometer') {
+perPx = P.MIC_MAX / Math.max(60, W - 112) * 0.35;
+} else {
+perPx = (P.CAL_XMAX + P.vcfg(st.div).span + 3) / Math.max(60, W - 104) * 0.35;
+}
+st.x = Math.max(0, st.inst === 'micrometer' ? Math.min(P.MIC_MAX, st.x + dx * perPx)
+: Math.min(P.CAL_XMAX, st.x + dx * perPx));
+if (st.inst === 'micrometer') { st.x = Math.round(st.x * 1000) / 1000; }
+else { st.x = Math.round(st.x * 100) / 100; }
+quizGot = null; quizMsg = null;
+updatePanel(); buildControls(); syncSliders(); R.draw(ctx, W, H, st);
+});
+cv.addEventListener('pointerup', function (e) {
+drag = null; cv.style.cursor = '';
+try { cv.releasePointerCapture(e.pointerId); } catch (err) { }
+});
+cv.addEventListener('pointercancel', function () { drag = null; cv.style.cursor = ''; });
+
+document.addEventListener('keydown', function (e) {
+if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) { return; }
+if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); next(); }
+else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+else if (e.key === 'Home') { goto(0); }
+else if (e.key === 'End') { goto(S.STEPS.length - 1); }
+});
+
+window.addEventListener('resize', function () { fitCanvas(); R.draw(ctx, W, H, st); });
+}
+
+/* ===================== 自检钩子 ===================== */
+function hash() {
+/* 注意：绝不调 fitCanvas()，复用 draw() 存下的尺寸（踩坑 8） */
+if (!W || !H) { return 'empty'; }
+var d = ctx.getImageData(0, 0, Math.min(W, cv.width), Math.min(H, cv.height)).data;
+var h = 2166136261 >>> 0, i, step = 97;
+for (i = 0; i < d.length; i += step * 4) {
+h ^= d[i]; h = Math.imul(h, 16777619) >>> 0;
+h ^= d[i + 1]; h = Math.imul(h, 16777619) >>> 0;
+h ^= d[i + 2]; h = Math.imul(h, 16777619) >>> 0;
+}
+return (h >>> 0).toString(16);
+}
+
+function checkAllowConsistency() {
+/* 验收第 5 条：hint 说能拖的，allow 里必须有 */
+var bad = [], i, d, hint, allow;
+for (i = 0; i < S.STEPS.length; i++) {
+d = S.STEPS[i]; hint = d.hint || ''; allow = d.allow || {};
+if (/游标零线位置|微分筒位置/.test(hint) && !allow.x) { bad.push('step' + (i + 1) + ': hint 提到位置滑杆，allow.x 缺失'); }
+if (/放大|放大条/.test(hint) && !allow.zoom && !allow.drag) { bad.push('step' + (i + 1) + ': hint 提到放大，allow.zoom/drag 缺失'); }
+if (/分度/.test(hint) && /点/.test(hint) && /10 \/ 20 \/ 50/.test(hint) && !allow.div) { bad.push('step' + (i + 1) + ': hint 提到分度切换，allow.div 缺失'); }
+var negated = /不用拖|不需要拖|无需拖|不用再拖/.test(hint);
+if (/拖|拖动/.test(hint) && !negated && !allow.drag && !allow.x) { bad.push('step' + (i + 1) + ': hint 说了拖动，allow 无 drag/x'); }
+if (/随机出题|核对/.test(hint) && !allow.quiz) { bad.push('step' + (i + 1) + ': hint 提到出题/核对，allow.quiz 缺失'); }
+}
+return { ok: bad.length === 0, bad: bad };
+}
+
+window.__viz = {
+selfTest: function () {
+var p = P.runSelfTest();
+var c = checkAllowConsistency();
+var fails = p.fails.slice();
+var n = p.nfail + (c.ok ? 0 : c.bad.length);
+if (!c.ok) { fails = fails.concat(c.bad); }
+return { pass: n === 0, cases: p.cases, nfail: n, fails: fails.slice(0, 12) };
+},
+hash: hash,
+goto: goto, next: next, prev: prev,
+state: function () { return st; },
+setX: function (v) { st.x = v; draw(); },
+answer: answerText,
+checkAllow: checkAllowConsistency,
+steps: S.STEPS.length,
+diag: function () { return { W: W, H: H, cw: cv.width, ch: cv.height, inst: st.inst, step: st.step }; }
+};
+
+/* ===================== 启动 ===================== */
+buildToc();
+bind();
+goto(0);
+window.addEventListener('load', function () { fitCanvas(); R.draw(ctx, W, H, st); });
+})();
+
+</script>
+</body>
+</html>
