@@ -102,7 +102,7 @@
     <h1>游标卡尺 &amp; 螺旋测微器</h1>
     <span class="act" id="actTag">第一幕</span>
     <span class="steptitle" id="stepTitle">—</span>
-    <span class="stepsn" id="stepSn">1 / 18</span>
+    <span class="stepsn" id="stepSn">1 / 22</span>
   </header>
 
   <nav class="topnav" id="toc" aria-label="步骤导航"></nav>
@@ -182,6 +182,7 @@ var VERNIER = {
 };
 var DIVS = [10, 20, 50];
 var CAL_XMAX = 21;
+var CAL_MM   = 150;
 
 function vcfg(div) { return VERNIER[div] || VERNIER[10]; }
 
@@ -190,7 +191,7 @@ function caliperSpan(div) { return vcfg(div).span + CAL_XMAX; }
 function vernier(x, div) {
 var c = vcfg(div), k = c.k;
 if (!(x >= 0)) { x = 0; }
-if (x > CAL_XMAX) { x = CAL_XMAX; }
+if (x > CAL_MM) { x = CAL_MM; }
 var L = Math.floor(x + 1e-9);
 var frac = x - L;
 var n = Math.round(frac * k);
@@ -251,6 +252,21 @@ return L + n / c.k;
 
 function newMicro() {
 return rndInt(100, MIC_MAX * 1000 - 100) / 1000;
+}
+
+function newObject(inst, seed) {
+var rng = mulberry32((seed >>> 0) || 1);
+if (inst === 'micrometer') {
+return Math.round((0.3 + rng() * 1.3) * 1000) / 1000;
+}
+return Math.round((5 + rng() * 35) * 100) / 100;
+}
+
+function newObjectCaliper(div, seed) {
+var c = vcfg(div), rng = mulberry32((seed >>> 0) || 1);
+var whole = 5 + Math.floor(rng() * 35);
+var n = 1 + Math.floor(rng() * (c.k - 1));
+return Math.round((whole + n / c.k) * 100) / 100;
 }
 
 function newCaliperS(div, seed) {
@@ -379,7 +395,8 @@ VERNIER: VERNIER, DIVS: DIVS, CAL_XMAX: CAL_XMAX, MIC_MAX: MIC_MAX,
 MIC_PITCH: MIC_PITCH, MIC_DIV: MIC_DIV,
 vcfg: vcfg, caliperSpan: caliperSpan, vernier: vernier, fmtCaliper: fmtCaliper,
 micro: micro, fmtMicro: fmtMicro,
-newCaliper: newCaliper, newMicro: newMicro,
+newCaliper: newCaliper, newMicro: newMicro, newObject: newObject,
+newObjectCaliper: newObjectCaliper, CAL_MM: CAL_MM,
 newCaliperS: newCaliperS, newMicroS: newMicroS, mulberry32: mulberry32,
 diagnoseCaliper: diagnoseCaliper, diagnoseMicro: diagnoseMicro,
 runSelfTest: runSelfTest
@@ -998,6 +1015,597 @@ return { draw: draw, C: C, FONT: FONT, txt: txt, seg: seg, box: box };
 
 
 
+window.VizReal = (function () {
+'use strict';
+
+var FONT = '"Microsoft YaHei","PingFang SC","Noto Sans SC","WenQuanYi Zen Hei",sans-serif';
+var C = {
+bg: '#000000', white: '#FFFFFF', grey: '#B0B0B0', grey2: '#8A8A8A',
+yellow: '#FFFF00',
+gold: '#F0AC5F', goldHi: '#FFD08A', goldLo: '#9E6A28',
+mHi: '#E6E6E6', mMid: '#9C9C9C', mLo: '#3E3E3E',
+dHi: '#9A9A9A', dMid: '#5E5E5E', dLo: '#242424'
+};
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+var CAL_MM = 150;
+var MIC_MM = 25;
+
+function txt(ctx, s, x, y, o) {
+o = o || {};
+ctx.save();
+ctx.font = (o.weight || 400) + ' ' + (o.size || 12) + 'px ' + FONT;
+ctx.fillStyle = o.color || C.white;
+ctx.textAlign = o.align || 'center';
+ctx.textBaseline = o.base || 'middle';
+if (o.alpha != null) { ctx.globalAlpha = o.alpha; }
+ctx.fillText(s, x, y);
+ctx.restore();
+}
+function seg(ctx, x0, y0, x1, y1, color, w, dash, alpha) {
+ctx.save();
+ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; ctx.lineCap = 'butt';
+if (dash) { ctx.setLineDash(dash); }
+if (alpha != null) { ctx.globalAlpha = alpha; }
+ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+ctx.restore();
+}
+function rrectPath(ctx, x, y, w, h, r) {
+r = Math.min(r, w / 2, h / 2);
+ctx.beginPath();
+ctx.moveTo(x + r, y);
+ctx.arcTo(x + w, y, x + w, y + h, r);
+ctx.arcTo(x + w, y + h, x, y + h, r);
+ctx.arcTo(x, y + h, x, y, r);
+ctx.arcTo(x, y, x + w, y, r);
+ctx.closePath();
+}
+
+function metal(ctx, x, y, w, h, r, hi, mid, lo) {
+var g = ctx.createLinearGradient(0, y, 0, y + h);
+g.addColorStop(0, lo);
+g.addColorStop(0.26, hi);
+g.addColorStop(0.54, mid);
+g.addColorStop(1, lo);
+ctx.save();
+rrectPath(ctx, x, y, w, h, r);
+ctx.fillStyle = g; ctx.fill();
+ctx.strokeStyle = C.dLo; ctx.lineWidth = 1;
+ctx.stroke();
+ctx.restore();
+}
+
+function sheen(ctx, x, y, w, alpha) {
+ctx.save();
+ctx.globalAlpha = alpha == null ? 0.5 : alpha;
+ctx.strokeStyle = C.white; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(x + 2, y + 0.5); ctx.lineTo(x + w - 2, y + 0.5); ctx.stroke();
+ctx.restore();
+}
+
+function knurl(ctx, x, y, w, h, step, alpha) {
+ctx.save();
+ctx.globalAlpha = alpha == null ? 0.45 : alpha;
+ctx.strokeStyle = C.dLo; ctx.lineWidth = 1;
+for (var i = x + step * 0.5; i < x + w; i += step) {
+ctx.beginPath(); ctx.moveTo(i, y + 2); ctx.lineTo(i, y + h - 2); ctx.stroke();
+}
+ctx.globalAlpha = (alpha == null ? 0.45 : alpha) * 0.55;
+ctx.strokeStyle = C.white;
+for (var j = x + step * 0.5 + 1; j < x + w; j += step) {
+ctx.beginPath(); ctx.moveTo(j, y + 2); ctx.lineTo(j, y + h - 2); ctx.stroke();
+}
+ctx.restore();
+}
+
+function cap(ctx, cx, cy, rx, ry, hi, mid) {
+var g = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
+g.addColorStop(0, hi); g.addColorStop(1, mid);
+ctx.save();
+ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+ctx.fillStyle = g; ctx.fill();
+ctx.strokeStyle = C.dLo; ctx.lineWidth = 1; ctx.stroke();
+ctx.restore();
+}
+
+function halo(ctx, x, y, r, color, a) {
+ctx.save();
+ctx.globalAlpha = a == null ? 0.18 : a; ctx.fillStyle = color;
+ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+ctx.restore();
+}
+
+function head(ctx, W, title, sub) {
+txt(ctx, title, 22, 24, { size: 16, color: C.white, weight: 600, align: 'left' });
+if (sub) { txt(ctx, sub, 22, 46, { size: 12, color: C.grey2, align: 'left' }); }
+}
+
+function clear(ctx, W, H) {
+ctx.save();
+ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+ctx.restore();
+}
+
+function caliper(ctx, W, H, st) {
+clear(ctx, W, H);
+var P = window.VizPhys, cfg = P.vcfg(st.div), k = cfg.k;
+var r = P.vernier(st.x, st.div);
+
+var compact0 = (H < 470) || (W < 560);
+var mL = compact0 ? 40 : 56, mR = compact0 ? 40 : 56;
+var winMM = compact0 ? 40 : 70;
+var cx = st.x + winMM * 0.17;
+var mm0 = cx - winMM / 2, mm1 = cx + winMM / 2;
+if (mm0 < -4) { mm0 = -4; mm1 = mm0 + winMM; }
+if (mm1 > CAL_MM + 4) { mm1 = CAL_MM + 4; mm0 = mm1 - winMM; }
+var pxmm = (W - mL - mR) / winMM;
+var X = function (mm) { return mL + (mm - mm0) * pxmm; };
+
+var compact = (H < 470) || (W < 560);
+
+var zoomH = compact ? 0 : clamp(H * 0.34, 130, 330);
+var zoomTop = H - 32 - zoomH;
+var msgH = compact ? 26 : 32;
+var bodyTop = compact ? 34 : 62, bodyBot = zoomTop - msgH - (compact ? 6 : 4);
+var bodyH = bodyBot - bodyTop;
+
+var beamH = clamp(H * 0.075, 34, 78);
+var jawH = beamH * 3.0;
+var instrH = beamH + jawH;
+var yBeam = bodyTop + Math.max(0, (bodyH - instrH) * 0.44);
+var yJawBot = yBeam + instrH;
+var msgY = bodyBot + msgH * 0.5 + 2;
+
+if (compact) {
+txt(ctx, '游标卡尺 · ' + cfg.k + ' 分度 · ' + P.fmtCaliper(r) + ' mm',
+14, 18, { size: 13, color: C.white, weight: 600, align: 'left' });
+} else {
+head(ctx, W, '游标卡尺（实物）· ' + cfg.k + ' 分度 · 量程 0 ~ ' + CAL_MM + ' mm',
+'真实比例 1 mm = ' + pxmm.toFixed(1) + ' px　·　精度 ' + cfg.precision.toFixed(2) +
+' mm　·　镜头跟随游标滑块　·　拖它去卡住被测物');
+}
+
+var bx0 = mL - 14, bx1 = W - mR + 14;
+metal(ctx, bx0, yBeam, bx1 - bx0, beamH, 2, C.mHi, C.mMid, C.mLo);
+sheen(ctx, bx0, yBeam + 2, bx1 - bx0, 0.42);
+
+var i, xp, hh;
+for (i = Math.max(0, Math.floor(mm0)); i <= Math.min(CAL_MM, Math.ceil(mm1)); i++) {
+xp = X(i);
+hh = (i % 10 === 0) ? beamH * 0.48 : (i % 5 === 0 ? beamH * 0.33 : beamH * 0.21);
+seg(ctx, xp, yBeam + beamH - 1, xp, yBeam + beamH - 1 - hh, C.dLo,
+i % 5 === 0 ? 1.2 : 0.8, null, i % 5 === 0 ? 0.95 : 0.68);
+if (i % (compact ? 20 : 10) === 0) {
+txt(ctx, String(i), xp, yBeam + beamH * 0.30, { size: compact ? 10 : 11, color: C.dLo, weight: 600 });
+}
+}
+if (!compact) {
+txt(ctx, 'mm', bx0 + 14, yBeam + beamH * 0.30, { size: 11, color: C.dLo, weight: 600, align: 'left' });
+txt(ctx, '窗口 ' + mm0.toFixed(0) + ' ~ ' + mm1.toFixed(0) + ' mm',
+bx1 - 14, yBeam + beamH * 0.30, { size: 11, color: C.dLo, align: 'right' });
+}
+
+var jawW = clamp(pxmm * 1.6, 6, 18);
+var lipH = jawH * 0.30;
+var yLip = yJawBot - lipH;
+
+var xFix = X(0);
+metal(ctx, xFix - jawW, yBeam + beamH - 2, jawW, jawH - beamH * 0.6, 2, C.dHi, C.dMid, C.dLo);
+metal(ctx, xFix, yLip, jawW * 1.5, lipH, 2, C.dHi, C.dMid, C.dLo);
+
+var pad = 12;
+var sx0 = X(r.x) - pad, sx1 = X(r.x + cfg.span) + pad;
+var sy0 = yBeam - 6, sy1 = yBeam + beamH + 6;
+metal(ctx, sx0, sy0, sx1 - sx0, sy1 - sy0, 3, C.mHi, C.mMid, C.mLo);
+sheen(ctx, sx0, sy0 + 2, sx1 - sx0, 0.55);
+knurl(ctx, sx0 + 3, sy0 + 3, 9, sy1 - sy0 - 6, 3, 0.32);
+knurl(ctx, sx1 - 12, sy0 + 3, 9, sy1 - sy0 - 6, 3, 0.32);
+
+var n, xv, isAl, isZero, col, hh2;
+for (n = 0; n <= k; n++) {
+xv = X(r.x + n * (k - 1) / k);
+if (xv < sx0 + 2 || xv > sx1 - 2) { continue; }
+isAl = (n === r.idx && st.flags && st.flags.hiAlign);
+isZero = (n === 0);
+col = (isAl || isZero) ? C.yellow : C.dLo;
+hh2 = (n % 5 === 0) ? beamH * 0.46 : beamH * 0.28;
+if (isZero || isAl) { hh2 = beamH * 0.60; }
+seg(ctx, xv, sy1 - 1, xv, sy1 - 1 - hh2, col,
+(isZero || isAl) ? 2.2 : (n % 5 === 0 ? 1.2 : 0.8), null, 1);
+if (isAl) { halo(ctx, xv, sy1 - hh2 * 0.6, 10, C.yellow, 0.22); }
+if (n % (compact ? 10 : 5) === 0 || isAl) {
+txt(ctx, String(n), xv, sy1 + (compact ? 11 : 13),
+{ size: compact ? 9.5 : 10, color: (isZero || isAl) ? C.yellow : C.dLo, weight: (isZero || isAl) ? 700 : 400 });
+}
+}
+
+var xMov = X(r.x);
+metal(ctx, xMov, sy1 - 3, jawW, jawH - beamH * 0.5, 2, C.dHi, C.dMid, C.dLo);
+metal(ctx, xMov - jawW * 1.5, yLip, jawW * 1.5, lipH, 2, C.dHi, C.dMid, C.dLo);
+
+var objW = st.objectMM != null ? st.objectMM : r.total;
+var ox0 = xFix + jawW * 1.5, ox1 = xMov - jawW * 1.5;
+var oy1 = yJawBot - 2, oy0 = yLip + lipH * 0.16;
+if (ox1 > ox0 + 1.5) {
+var fitted = Math.abs(r.x - objW) <= cfg.precision * 0.5 + 1e-9;
+ctx.save();
+rrectPath(ctx, ox0, oy0, ox1 - ox0, oy1 - oy0, 2);
+var og = ctx.createLinearGradient(0, oy0, 0, oy1);
+og.addColorStop(0, C.goldLo); og.addColorStop(0.28, C.goldHi);
+og.addColorStop(0.54, C.gold); og.addColorStop(1, C.goldLo);
+ctx.fillStyle = og; ctx.fill();
+ctx.strokeStyle = fitted ? C.yellow : C.goldLo;
+ctx.lineWidth = fitted ? 2.4 : 1; ctx.stroke();
+ctx.restore();
+if (fitted) { halo(ctx, (ox0 + ox1) / 2, (oy0 + oy1) / 2, 30, C.yellow, 0.15); }
+
+if (st.flags && st.flags.dimJaw && !compact) {
+var ym = yJawBot + 18;
+seg(ctx, ox0, ym, ox1, ym, C.gold, 1.4, null, 0.95);
+seg(ctx, ox0, ym - 5, ox0, ym + 5, C.gold, 1.4);
+seg(ctx, ox1, ym - 5, ox1, ym + 5, C.gold, 1.4);
+txt(ctx, '被测物 ' + objW.toFixed(cfg.dec) + ' mm',
+(ox0 + ox1) / 2, ym + 15, { size: 11.5, color: C.gold, weight: 600 });
+}
+if (fitted) {
+txt(ctx, '✓ 两爪已卡紧　→　读数 ' + P.fmtCaliper(r) + ' mm',
+W / 2, msgY, { size: compact ? 11.5 : 13.5, color: C.yellow, weight: 700 });
+} else {
+txt(ctx, '拖游标滑块，让两爪刚好贴住被测物',
+W / 2, msgY, { size: compact ? 11 : 12.5, color: C.grey2 });
+}
+} else {
+txt(ctx, '两爪已闭合（读数为 0）—— 拖开滑块把被测物放进去',
+W / 2, msgY, { size: compact ? 11 : 12.5, color: C.grey2 });
+}
+
+var labY = Math.max(compact ? 30 : 56, sy0 - (compact ? 18 : 26));
+seg(ctx, xMov, labY + 5, xMov, sy1, C.yellow, 1.4, [7, 5], 0.8);
+if (!compact) {
+txt(ctx, '游标 0 线', xMov, labY - 6, { size: 11, color: C.yellow, weight: 600 });
+}
+
+if (!compact) { zoomStrip(ctx, st, r, W, H, zoomTop, zoomH, mL, mR, cfg, k); }
+}
+
+function zoomStrip(ctx, st, r, W, H, yTop, h, mL, mR, cfg, k) {
+var P = window.VizPhys;
+var boxW = W - mL - mR;
+var winMM = 13;
+var cxc = r.x + cfg.span / 2;
+var mm0 = cxc - winMM / 2, mm1 = cxc + winMM / 2;
+if (mm0 < -0.5) { mm0 = -0.5; mm1 = mm0 + winMM; }
+if (mm1 > CAL_MM + 0.5) { mm1 = CAL_MM + 0.5; mm0 = mm1 - winMM; }
+var pxmm = boxW / winMM;
+var X = function (mm) { return mL + (mm - mm0) * pxmm; };
+
+txt(ctx, '读数特写（×' + (pxmm / ((W - mL - mR) / CAL_MM)).toFixed(0) + '）',
+mL, yTop - 13, { size: 11.5, color: C.grey2, align: 'left' });
+txt(ctx, '窗口 ' + mm0.toFixed(1) + ' ~ ' + mm1.toFixed(1) + ' mm',
+mL + boxW, yTop - 13, { size: 11.5, color: C.grey2, align: 'right' });
+
+var beamH = clamp(h * 0.36, 36, 92);
+var bandH = beamH * 1.46;
+var yBeam = yTop + clamp((h - bandH - 40) * 0.45, 20, 90);
+var i, xp, hh, n, xv, isAl, isZero, col, hh2;
+
+ctx.save();
+ctx.beginPath(); ctx.rect(mL - 2, yTop - 2, boxW + 4, h + 4); ctx.clip();
+
+metal(ctx, X(-0.5), yBeam, X(CAL_MM + 0.5) - X(-0.5), beamH, 3, C.mHi, C.mMid, C.mLo);
+sheen(ctx, X(-0.5), yBeam + 2, X(CAL_MM + 0.5) - X(-0.5), 0.42);
+for (i = Math.floor(mm0); i <= Math.ceil(mm1); i++) {
+if (i < 0 || i > CAL_MM) { continue; }
+xp = X(i);
+hh = (i % 10 === 0) ? beamH * 0.46 : (i % 5 === 0 ? beamH * 0.32 : beamH * 0.20);
+seg(ctx, xp, yBeam + beamH - 1, xp, yBeam + beamH - 1 - hh, C.dLo,
+i % 5 === 0 ? 1.2 : 0.8, null, i % 5 === 0 ? 0.95 : 0.7);
+txt(ctx, String(i), xp, yBeam + beamH * 0.30,
+{ size: 11.5, color: C.dLo, weight: 600 });
+}
+
+var sy0 = yBeam - (bandH - beamH) / 2, sy1 = yBeam + beamH + (bandH - beamH) / 2;
+var sx0 = X(r.x) - 12, sx1 = X(r.x + cfg.span) + 12;
+metal(ctx, sx0, sy0, sx1 - sx0, sy1 - sy0, 3, C.mHi, C.mMid, C.mLo);
+sheen(ctx, sx0, sy0 + 2, sx1 - sx0, 0.55);
+
+for (n = 0; n <= k; n++) {
+xv = X(r.x + n * (k - 1) / k);
+isAl = (n === r.idx && st.flags && st.flags.hiAlign);
+isZero = (n === 0);
+col = (isAl || isZero) ? C.yellow : C.dLo;
+hh2 = (n % 5 === 0) ? beamH * 0.46 : beamH * 0.28;
+if (isZero || isAl) { hh2 = beamH * 0.60; }
+seg(ctx, xv, sy1 - 1, xv, sy1 - 1 - hh2, col,
+(isZero || isAl) ? 2.2 : (n % 5 === 0 ? 1.2 : 0.8), null, 1);
+if (isAl) { halo(ctx, xv, sy1 - hh2 * 0.6, 11, C.yellow, 0.24); }
+if (n % 5 === 0) {
+txt(ctx, String(n), xv, sy1 + 14,
+{ size: 11, color: (isZero || isAl) ? C.yellow : C.dLo, weight: (isZero || isAl) ? 700 : 400 });
+}
+}
+
+if (st.flags && st.flags.hiAlign) {
+seg(ctx, X(r.mLine), yBeam + 2, X(r.mLine), sy1, C.yellow, 1.6, [3, 3], 0.9);
+txt(ctx, '第 ' + r.idx + ' 条对齐　残差 ' + r.residual.toFixed(4) + ' mm',
+X(r.mLine), sy1 + 34, { size: 11.5, color: C.yellow, weight: 600 });
+}
+ctx.restore();
+
+txt(ctx, '主尺读数 ' + r.mainMM + ' mm　+　第 ' + r.idx + ' 条 × ' + cfg.precision +
+' mm　=　' + P.fmtCaliper(r) + ' mm',
+W / 2, yTop + h - 16, { size: 13.5, color: C.yellow, weight: 700 });
+}
+
+function micrometer(ctx, W, H, st) {
+clear(ctx, W, H);
+var P = window.VizPhys;
+var r = P.micro(st.x);
+
+var mL = 104, mR = 60;
+var winMM = 12;
+var mm0 = r.x - winMM * 0.66, mm1 = mm0 + winMM;
+if (mm0 < -0.6) { mm0 = -0.6; mm1 = mm0 + winMM; }
+if (mm1 > MIC_MM + 0.6) { mm1 = MIC_MM + 0.6; mm0 = mm1 - winMM; }
+var pxmm = (W - mL - mR) / winMM;
+var X = function (mm) { return mL + (mm - mm0) * pxmm; };
+
+var miniH = clamp(H * 0.20, 84, 190);
+var zoomH = clamp(H * 0.26, 108, 250);
+var zoomTop = H - 30 - zoomH;
+var miniTop = zoomTop - 40 - miniH;
+var msgH = 32;
+var bodyTop = 64, bodyBot = miniTop - msgH - 4;
+var bodyH = bodyBot - bodyTop;
+
+var sleeveHH = clamp(H * 0.075, 36, 84);
+var thimbleHH = clamp(H * 0.110, 56, 128);
+var instrH = thimbleHH * 2 + 30;
+var yD = bodyTop + Math.max(0, (bodyH - instrH) * 0.48) + thimbleHH;
+var msgY = bodyBot + msgH * 0.5 + 2;
+
+head(ctx, W, '螺旋测微器（实物）· 螺距 0.5 mm · 量程 0 ~ ' + MIC_MM + ' mm',
+'真实比例 1 mm = ' + pxmm.toFixed(0) + ' px　·　固定刻度 0.5 mm 一格　·　可动刻度 50 格 × 0.01 mm　·　读到 0.001 mm');
+
+var jawBot = yD + thimbleHH + 22;
+var sl0 = X(0);
+if (mm0 < 3.2) {
+var fx = sl0 - 30;
+ctx.save();
+ctx.strokeStyle = C.dMid; ctx.lineWidth = 16; ctx.lineCap = 'round';
+ctx.beginPath();
+ctx.moveTo(fx, yD - sleeveHH - 12);
+ctx.lineTo(fx, jawBot - 60);
+ctx.quadraticCurveTo(fx, jawBot, sl0 + 50, jawBot);
+ctx.stroke();
+ctx.strokeStyle = C.dHi; ctx.lineWidth = 11;
+ctx.beginPath();
+ctx.moveTo(fx, yD - sleeveHH - 12);
+ctx.lineTo(fx, jawBot - 60);
+ctx.quadraticCurveTo(fx, jawBot, sl0 + 50, jawBot);
+ctx.stroke();
+ctx.restore();
+
+metal(ctx, sl0 - 22, yD - sleeveHH * 1.05, 24, sleeveHH * 2.1, 2, C.mHi, C.mMid, C.mLo);
+} else {
+
+txt(ctx, '← 测砧在左侧 ' + r.x.toFixed(1) + ' mm 处', mL, yD, { size: 11, color: C.grey2, align: 'left' });
+}
+
+var t0 = X(r.x), t1 = W - mR + 10;
+metal(ctx, mL - 14, yD - sleeveHH, Math.max(4, t0 - (mL - 14)), sleeveHH * 2, 2, C.mHi, C.mMid, C.mLo);
+
+var m, xp, isLast, xh, isLastH;
+for (m = Math.max(0, Math.floor(mm0)); m <= Math.min(MIC_MM, Math.ceil(mm1)); m++) {
+if (m > r.x + 1e-9) { break; }
+xp = X(m);
+isLast = (m + 1 > r.x + 1e-9);
+seg(ctx, xp, yD - sleeveHH * 0.62, xp, yD - 5, isLast ? C.yellow : C.dLo,
+isLast ? 2.6 : 1.3, null, 1);
+txt(ctx, String(m), xp, yD - sleeveHH * 0.62 - 16,
+{ size: 13, color: isLast ? C.yellow : C.dLo, weight: isLast ? 700 : 600 });
+if (m < MIC_MM) {
+xh = X(m + 0.5);
+if (m + 0.5 <= r.x + 1e-9) {
+isLastH = (m + 1.0 > r.x + 1e-9);
+seg(ctx, xh, yD + 5, xh, yD + sleeveHH * 0.50, isLastH ? C.yellow : C.dLo,
+isLastH ? 2.6 : 1.3, null, 1);
+}
+}
+}
+txt(ctx, '毫米线', mL - 20, yD - sleeveHH * 0.62, { size: 10.5, color: C.grey2, align: 'right' });
+txt(ctx, '半毫米线', mL - 20, yD + sleeveHH * 0.50, { size: 10.5, color: C.grey2, align: 'right' });
+txt(ctx, '基准线', mL + 5, yD + 15, { size: 10.5, color: C.grey2, align: 'left' });
+
+for (m = Math.max(0, Math.floor(mm0)); m <= Math.min(MIC_MM, Math.ceil(mm1)); m++) {
+if (m > r.x + 1e-9) { break; }
+xp = X(m);
+isLast = (m + 1 > r.x + 1e-9);
+seg(ctx, xp, yD - sleeveHH * 0.62, xp, yD - 5, isLast ? C.yellow : C.dLo,
+isLast ? 2.6 : 1.3, null, 1);
+txt(ctx, String(m), xp, yD - sleeveHH * 0.62 - 16,
+{ size: 13, color: isLast ? C.yellow : C.dLo, weight: isLast ? 700 : 600 });
+if (m < MIC_MM) {
+xh = X(m + 0.5);
+if (m + 0.5 <= r.x + 1e-9) {
+isLastH = (m + 1.0 > r.x + 1e-9);
+seg(ctx, xh, yD + 5, xh, yD + sleeveHH * 0.50, isLastH ? C.yellow : C.dLo,
+isLastH ? 2.6 : 1.3, null, 1);
+}
+}
+}
+
+var wireMM = st.objectMM != null ? st.objectMM : r.total;
+var wx0 = Math.max(mL - 8, X(0) - 22), wx1 = X(r.x);
+
+var wr = clamp((wireMM / 6.5) * sleeveHH, 3, sleeveHH * 0.34);
+var fitted = Math.abs(r.x - wireMM) <= 0.0005;
+if (wx1 > wx0 + 1) {
+ctx.save();
+var wg = ctx.createLinearGradient(0, yD - wr, 0, yD + wr);
+wg.addColorStop(0, C.goldLo); wg.addColorStop(0.32, C.goldHi);
+wg.addColorStop(0.55, C.gold); wg.addColorStop(1, C.goldLo);
+ctx.beginPath(); ctx.rect(wx0, yD - wr, wx1 - wx0, wr * 2);
+ctx.fillStyle = wg; ctx.fill();
+ctx.strokeStyle = fitted ? C.yellow : C.goldLo;
+ctx.lineWidth = fitted ? 2.2 : 1; ctx.stroke();
+ctx.restore();
+if (fitted) { halo(ctx, (wx0 + wx1) / 2, yD, 26, C.yellow, 0.13); }
+txt(ctx, '被测金属丝 ' + wireMM.toFixed(3) + ' mm',
+(wx0 + wx1) / 2, yD + wr + 16, { size: 11, color: C.gold, weight: 600 });
+}
+
+metal(ctx, t0, yD - thimbleHH, t1 - t0, thimbleHH * 2, 3, C.mHi, C.mMid, C.mLo);
+sheen(ctx, t0, yD - thimbleHH + 2, t1 - t0, 0.5);
+knurl(ctx, t1 - 58, yD - thimbleHH + 4, 50, thimbleHH * 2 - 8, 3.4, 0.42);
+cap(ctx, t1, yD, 6, thimbleHH, C.mHi, C.mMid);
+
+var gap = clamp(thimbleHH * 2 / 22, 7, 18);
+var dc = r.div + r.est / 10;
+var d, yd, vis, isCur, col2, len;
+for (d = 0; d < P.MIC_DIV; d++) {
+yd = yD - (d - dc) * gap;
+if (yd < yD - thimbleHH + 6 || yd > yD + thimbleHH - 6) { continue; }
+vis = Math.abs(d - dc) < 0.5;
+isCur = (d === r.div);
+col2 = vis ? C.yellow : (isCur ? C.gold : C.dLo);
+len = (d % 5 === 0) ? 24 : 14;
+seg(ctx, t0 + 6, yd, t0 + 6 + len, yd, col2, vis ? 2.6 : (isCur ? 1.9 : 1.2),
+null, (d % 5 === 0 || vis) ? 1 : 0.75);
+if (d % 5 === 0) {
+txt(ctx, String(d), t0 + len + 15, yd,
+{ size: 12, color: vis ? C.yellow : C.dLo, weight: vis ? 700 : 600 });
+}
+}
+if (r.est > 0) { halo(ctx, t0 + 6, yD, 10, C.gold, 0.25); }
+
+seg(ctx, mL - 14, yD, t0 + Math.min(170, (t1 - t0) - 14), yD, C.dLo, 1.8, null, 0.9);
+seg(ctx, t0, yD - thimbleHH - 14, t0, yD + thimbleHH + 10, C.yellow, 2.6);
+txt(ctx, '读数边', t0, yD - thimbleHH - 28, { size: 11.5, color: C.yellow, weight: 600 });
+
+if (fitted) {
+txt(ctx, '✓ 已夹紧金属丝　→　读数 ' + P.fmtMicro(r) + ' mm',
+W / 2, msgY, { size: 13.5, color: C.yellow, weight: 700 });
+} else {
+txt(ctx, '转微分筒，让测微螺杆刚好夹住金属丝（真机靠尾端棘轮防止夹太紧）',
+W / 2, msgY, { size: 12.5, color: C.grey2 });
+}
+
+miniMap(ctx, st, r, W, miniTop, miniH, mL, mR, mm0, mm1);
+
+micZoom(ctx, st, r, W, H, zoomTop, zoomH, mL, mR, X, pxmm);
+}
+
+function miniMap(ctx, st, r, W, yTop, h, mL, mR, winMM0, winMM1) {
+var P = window.VizPhys;
+var boxW = W - mL - mR;
+var X = function (mm) { return mL + mm / MIC_MM * boxW; };
+var yD = yTop + h * 0.46;
+var hh = clamp(h * 0.16, 9, 20);
+
+txt(ctx, '整机位置（全量程 ' + MIC_MM + ' mm）', mL, yTop - 10, { size: 11.5, color: C.grey2, align: 'left' });
+txt(ctx, '当前 ' + P.fmtMicro(r) + ' mm',
+mL + boxW, yTop - 10, { size: 11.5, color: C.yellow, align: 'right', weight: 600 });
+
+metal(ctx, mL, yD - hh, boxW, hh * 2, 2, C.mHi, C.mMid, C.mLo);
+
+var i, xp;
+for (i = 0; i <= MIC_MM; i++) {
+xp = X(i);
+seg(ctx, xp, yD - hh + 1, xp, yD - hh + 1 + (i % 5 === 0 ? hh * 0.9 : hh * 0.5),
+C.dLo, i % 5 === 0 ? 1.1 : 0.7, null, 0.9);
+if (i % 5 === 0) {
+txt(ctx, String(i), xp, yD + hh * 0.42, { size: 9.5, color: C.dLo, weight: 600 });
+}
+}
+
+metal(ctx, X(r.x), yD - hh * 1.4, mL + boxW - X(r.x), hh * 2.8, 2, C.mHi, C.mMid, C.mLo);
+knurl(ctx, mL + boxW - 40, yD - hh * 1.4 + 2, 34, hh * 2.8 - 4, 2.6, 0.4);
+seg(ctx, X(r.x), yD - hh * 1.4 - 5, X(r.x), yD + hh * 1.4 + 5, C.yellow, 2);
+
+var wx0 = X(Math.max(0, winMM0)), wx1 = X(Math.min(MIC_MM, winMM1));
+seg(ctx, wx0, yD + hh * 1.4 + 6, wx1, yD + hh * 1.4 + 6, C.yellow, 2.4, null, 0.9);
+seg(ctx, wx0, yD + hh * 1.4 + 2, wx0, yD + hh * 1.4 + 10, C.yellow, 2);
+seg(ctx, wx1, yD + hh * 1.4 + 2, wx1, yD + hh * 1.4 + 10, C.yellow, 2);
+txt(ctx, '↑ 上面主视图显示的就是这一段', (wx0 + wx1) / 2, yD + hh * 1.4 + 22,
+{ size: 10.5, color: C.yellow });
+}
+
+function micZoom(ctx, st, r, W, H, yTop, h, mL, mR, X0, pxmm0) {
+var P = window.VizPhys;
+var boxW = W - mL - mR;
+var winMM = 6;
+var cxc = r.x - winMM * 0.35;
+var mm0 = cxc - winMM / 2, mm1 = cxc + winMM / 2;
+if (mm0 < -0.3) { mm0 = -0.3; mm1 = mm0 + winMM; }
+if (mm1 > MIC_MM + 0.3) { mm1 = MIC_MM + 0.3; mm0 = mm1 - winMM; }
+var pxmm = boxW / winMM;
+var X = function (mm) { return mL + (mm - mm0) * pxmm; };
+
+txt(ctx, '读数特写（×' + (pxmm / pxmm0).toFixed(0) + '）',
+mL, yTop - 13, { size: 11.5, color: C.grey2, align: 'left' });
+txt(ctx, '窗口 ' + mm0.toFixed(2) + ' ~ ' + mm1.toFixed(2) + ' mm',
+mL + boxW, yTop - 13, { size: 11.5, color: C.grey2, align: 'right' });
+
+var sleeveHH = clamp(h * 0.20, 26, 54);
+var yD = yTop + h * 0.50;
+var m, xp, isLast, xh, isLastH;
+
+ctx.save();
+ctx.beginPath(); ctx.rect(mL - 2, yTop - 2, boxW + 4, h + 4); ctx.clip();
+
+var t0 = X(r.x);
+metal(ctx, X(-0.3), yD - sleeveHH, Math.max(4, t0 - X(-0.3)), sleeveHH * 2, 2, C.mHi, C.mMid, C.mLo);
+for (m = 0; m <= MIC_MM; m++) {
+if (m > r.x + 1e-9) { break; }
+xp = X(m);
+isLast = (m + 1 > r.x + 1e-9);
+seg(ctx, xp, yD - sleeveHH * 0.60, xp, yD - 4, isLast ? C.yellow : C.dLo,
+isLast ? 2.4 : 1.2, null, 1);
+txt(ctx, String(m), xp, yD - sleeveHH * 0.60 - 15,
+{ size: 12.5, color: isLast ? C.yellow : C.dLo, weight: isLast ? 700 : 600 });
+if (m < MIC_MM) {
+xh = X(m + 0.5);
+if (m + 0.5 <= r.x + 1e-9) {
+isLastH = (m + 1.0 > r.x + 1e-9);
+seg(ctx, xh, yD + 4, xh, yD + sleeveHH * 0.46, isLastH ? C.yellow : C.dLo,
+isLastH ? 2.4 : 1.2, null, 1);
+}
+}
+}
+
+metal(ctx, t0, yD - sleeveHH * 1.5, X(MIC_MM + 0.3) - t0, sleeveHH * 3, 3, C.mHi, C.mMid, C.mLo);
+var gap = Math.max(7, Math.min(sleeveHH * 1.5 / 12, 20));
+var dc = r.div + r.est / 10;
+var d, yd, vis, isCur, col2, len;
+for (d = 0; d < P.MIC_DIV; d++) {
+yd = yD - (d - dc) * gap;
+if (yd < yD - sleeveHH * 1.5 + 6 || yd > yD + sleeveHH * 1.5 - 6) { continue; }
+vis = Math.abs(d - dc) < 0.5;
+isCur = (d === r.div);
+col2 = vis ? C.yellow : (isCur ? C.gold : C.dLo);
+len = (d % 5 === 0) ? 24 : 14;
+seg(ctx, t0 + 6, yd, t0 + 6 + len, yd, col2, vis ? 2.4 : (isCur ? 1.8 : 1.1),
+null, (d % 5 === 0 || vis) ? 1 : 0.75);
+if (d % 5 === 0) {
+txt(ctx, String(d), t0 + len + 14, yd,
+{ size: 11.5, color: vis ? C.yellow : C.dLo, weight: vis ? 700 : 600 });
+}
+}
+seg(ctx, X(-0.3), yD, t0 + 150, yD, C.dLo, 1.6, null, 0.85);
+seg(ctx, t0, yD - sleeveHH * 1.5 - 10, t0, yD + sleeveHH * 1.5 + 8, C.yellow, 2.4);
+ctx.restore();
+
+txt(ctx, '固定刻度 ' + r.fixedMM.toFixed(1) + ' mm　+　可动 ' + r.div + ' × 0.01　+　估读 ' +
+r.est + ' × 0.001　=　' + P.fmtMicro(r) + ' mm',
+W / 2, yTop + h - 6, { size: 13, color: C.yellow, weight: 700 });
+}
+
+return { caliper: caliper, micrometer: micrometer, C: C, CAL_MM: CAL_MM, MIC_MM: MIC_MM };
+})();
+
+
+
 window.VizSteps = (function () {
 'use strict';
 var P = window.VizPhys;
@@ -1007,6 +1615,8 @@ return {
 step: 0, act: '', title: '', hint: '', note: '', formula: '',
 allow: {}, rng: {},
 inst: 'caliper',
+real: false,
+objectMM: null,
 div: 10, x: 7.3,
 flags: {
 object: true, dimJaw: false, ribbon: false, hiAlign: false,
@@ -1018,13 +1628,82 @@ view: { az: 0, el: 0, zoom: 1 }
 };
 }
 
-var A1 = '第一幕 · 游标卡尺读数';
-var A2 = '第二幕 · 螺旋测微器读数';
-var A3 = '第三幕 · 卡尺原理：错位放大';
-var A4 = '第四幕 · 测微器原理：螺旋放大';
-var A5 = '第五幕 · 练习与总结';
+var A0 = '第一幕 · 实物测量';
+var A1 = '第二幕 · 游标卡尺读数';
+var A2 = '第三幕 · 螺旋测微器读数';
+var A3 = '第四幕 · 卡尺原理：错位放大';
+var A4 = '第五幕 · 测微器原理：螺旋放大';
+var A5 = '第六幕 · 练习与总结';
 
 var STEPS = [
+
+{
+act: A0, title: '真家伙来了：先看游标卡尺长什么样',
+hint: '拖 <b>画布上的游标滑块</b>（或底栏 <b>「游标位置」</b>滑杆），看两个量爪怎么分开、合拢',
+note: '真机的样子：一根<b>主尺梁</b>（0~150 mm），左端一个<b>固定量爪</b>，' +
+'套在梁上能滑动的<b>游标滑块</b>带着<b>活动量爪</b>。两爪之间的开口，就是被测物的长度。<br>' +
+'注意滑块上那排小刻度 —— 那就是游标尺。',
+formula: '两爪间距 = 被测物长度',
+allow: { x: true, drag: true },
+rng: { x: [0, 150, 0.02] },
+inst: 'caliper', real: true, div: 10,
+flags: { object: true, hiAlign: false, dimJaw: false },
+init: function (st) {
+st.real = true; st.div = 10;
+st.objectMM = P.newObjectCaliper(10, 7);
+st.x = st.objectMM;
+}
+},
+{
+act: A0, title: '去卡住它：把两爪推到刚好贴住被测物',
+hint: '拖 <b>「游标位置」</b>让活动量爪靠过去；<b>刚好贴住</b>时物体会亮起黄边并提示「已卡紧」',
+note: '真实测量的动作就是这样：先<b>松开</b>滑块，把被测物放进两爪之间，' +
+'再<b>推</b>到刚好贴住 —— 不能留缝，也不能硬挤。贴住的那一瞬间，两爪间距就等于物体长度。',
+formula: '卡紧 ⇔ 两爪间距 = 物体长度',
+allow: { x: true, drag: true },
+rng: { x: [0, 150, 0.02] },
+inst: 'caliper', real: true, div: 10,
+flags: { object: true, hiAlign: false, dimJaw: true },
+init: function (st) {
+st.real = true; st.div = 10;
+st.objectMM = P.newObjectCaliper(10, 7);
+st.x = 0;
+}
+},
+{
+act: A0, title: '真机上读数：主尺 + 游标，一次读完',
+hint: '卡紧后看底部<b>读数特写</b>：游标 0 线左边读主尺，对齐线读小数',
+note: '真机上这两个动作是连着做的：<b>①</b> 看游标 0 线落在主尺哪一格之间，读左边那条线的整毫米；' +
+'<b>②</b> 在游标尺上找<b>哪一条线跟主尺线完全对缝</b>，数它是第几条。<br>' +
+'底部特写把这两处同时放大，方便你在真尺子上找到它们。',
+formula: '读数 = 主尺整毫米 + 对齐线序号 × 精度',
+allow: { x: true, drag: true },
+rng: { x: [0, 150, 0.02] },
+inst: 'caliper', real: true, div: 10,
+flags: { object: true, hiAlign: true, dimJaw: true },
+init: function (st) {
+st.real = true; st.div = 10;
+st.objectMM = P.newObjectCaliper(10, 7);
+st.x = st.objectMM;
+}
+},
+{
+act: A0, title: '换螺旋测微器：转微分筒，夹住一根金属丝',
+hint: '拖 <b>「微分筒位置」</b>让测微螺杆靠过去；夹紧时金属丝亮黄边。右侧<b>棘轮</b>是真机上防夹太紧的装置',
+note: '真机结构：<b>U 形尺架</b> → 左端<b>测砧</b>（固定）→ 右端<b>测微螺杆</b>（可动，靠转微分筒推进）。' +
+'被测的金属丝夹在测砧和螺杆之间。<br>' +
+'真机尾部还有一个<b>棘轮</b>（打滑装置）：拧到一定力就空转，防止把丝夹扁、也防止读数偏小。',
+formula: '夹紧 ⇔ 测砧与螺杆之间刚好容下金属丝',
+allow: { x: true, drag: true },
+rng: { x: [0, 12, 0.001] },
+inst: 'micrometer', real: true,
+flags: { object: true, hiAlign: true, pitch: false },
+init: function (st) {
+st.real = true;
+st.objectMM = P.newObject('micrometer', 3);
+st.x = st.objectMM;
+}
+},
 
 {
 act: A1, title: '把游标尺拖到任意位置，先看三个数怎么分工',
@@ -1036,7 +1715,7 @@ allow: { x: true, div: true, zoom: true, drag: true },
 rng: { x: [0, 21, 0.02], zoom: [1, 4, 0.5] },
 inst: 'caliper', div: 10,
 flags: { object: true, hiAlign: true },
-init: function (st) { st.div = 10; st.x = 7.3; st.zoom = 1; }
+init: function (st) { st.real = false; st.div = 10; st.x = 7.3; st.zoom = 1; }
 },
 {
 act: A1, title: '读第一段：主尺读数 —— 只看游标 0 线左边',
@@ -1268,6 +1947,8 @@ st.formula = d.formula || '';
 st.allow = d.allow || {};
 st.rng = d.rng || {};
 st.inst = d.inst || 'caliper';
+st.real = !!d.real;
+st.objectMM = (d.real ? st.objectMM : null);
 st.div = d.div || st.div || 10;
 var f = d.flags || {};
 for (k in f) { if (Object.prototype.hasOwnProperty.call(f, k)) { st.flags[k] = f[k]; } }
@@ -1281,7 +1962,7 @@ return { STEPS: STEPS, baseState: base, apply: apply };
 
 (function () {
 'use strict';
-var P = window.VizPhys, R = window.VizRender, S = window.VizSteps;
+var P = window.VizPhys, R = window.VizRender, RL = window.VizReal, S = window.VizSteps;
 
 var cv = document.getElementById('cv');
 var ctx = cv.getContext('2d', { willReadFrequently: true });
@@ -1444,6 +2125,11 @@ if (on && st.rng && st.rng[k]) {
 var rg = document.getElementById(def.id);
 rg.min = st.rng[k][0]; rg.max = st.rng[k][1]; rg.step = st.rng[k][2];
 rg.value = st[k];
+} else if (on && k === 'x' && st.real) {
+var rg2 = document.getElementById(def.id);
+var lim = (st.inst === 'micrometer') ? P.MIC_MAX : P.CAL_MM;
+rg2.min = 0; rg2.max = lim; rg2.step = (st.inst === 'micrometer') ? 0.001 : 0.02;
+rg2.value = st.x;
 }
 }
 
@@ -1512,7 +2198,11 @@ updatePanel();
 markToc();
 buildControls();
 fitCanvas();
+if (st.real && RL && st.inst !== 'compare') {
+RL[st.inst === 'micrometer' ? 'micrometer' : 'caliper'](ctx, W, H, st);
+} else {
 R.draw(ctx, W, H, st);
+}
 document.getElementById('actTag').textContent = st.act;
 document.getElementById('stepTitle').textContent = st.title;
 document.getElementById('stepSn').textContent = (st.step + 1) + ' / ' + S.STEPS.length;
@@ -1600,12 +2290,14 @@ var dx = e.clientX - drag.x;
 drag.x = e.clientX;
 var perPx;
 if (st.inst === 'micrometer') {
-perPx = P.MIC_MAX / Math.max(60, W - 112) * 0.35;
+perPx = P.MIC_MAX / Math.max(60, W - 112) * (st.real ? 1 : 0.35);
+} else if (st.real) {
+perPx = P.CAL_MM / Math.max(60, W - 108) * 1;
 } else {
 perPx = (P.CAL_XMAX + P.vcfg(st.div).span + 3) / Math.max(60, W - 104) * 0.35;
 }
-st.x = Math.max(0, st.inst === 'micrometer' ? Math.min(P.MIC_MAX, st.x + dx * perPx)
-: Math.min(P.CAL_XMAX, st.x + dx * perPx));
+var lim2 = (st.inst === 'micrometer') ? P.MIC_MAX : (st.real ? P.CAL_MM : P.CAL_XMAX);
+st.x = Math.max(0, Math.min(lim2, st.x + dx * perPx));
 if (st.inst === 'micrometer') { st.x = Math.round(st.x * 1000) / 1000; }
 else { st.x = Math.round(st.x * 100) / 100; }
 quizGot = null; quizMsg = null;
