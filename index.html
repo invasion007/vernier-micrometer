@@ -755,23 +755,22 @@ function drawMicrometer(ctx, W, H, st) {
 var P = window.VizPhys;
 var r = P.micro(st.x);
 
-var gapL = 112;
-var sleeveW = clamp(W * 0.46, 300, 720);
-var nominalTh = 260;
-var xOff = Math.max(0, (W - (gapL + sleeveW + nominalTh)) / 2);
-var mL = xOff + gapL;
+var gapL = 104;
+var sleeveW = clamp(W * 0.50, 300, 820);
+var thW = clamp(W * 0.30, 210, 520);
+var mL = Math.max(gapL + 26, (W - sleeveW / 2 - thW + 20) / 2);
 var mR = 40;
 var sl0 = mL, sl1 = sl0 + sleeveW;
 var pxmm = sleeveW / P.MIC_MAX;
 var X = function (mm) { return sl0 + mm * pxmm; };
 
 var compact = (H < 470) || (W < 560);
-var stripH = compact ? 0 : clamp(H * 0.30, 112, 330);
-var stripTop = H - 52 - stripH;
-var instTop = compact ? 36 : 66, instBot = stripTop - (compact ? 14 : 62);
+var stripH = compact ? 0 : clamp(H * 0.31, 118, 340);
+var stripTop = H - 50 - stripH;
+var instTop = compact ? 36 : 54, instBot = stripTop - (compact ? 14 : 54);
 var yD = instTop + (instBot - instTop) * 0.50;
-var sleeveHH = clamp((instBot - instTop) * (compact ? 0.42 : 0.30), compact ? 30 : 42, compact ? 60 : 86);
-var thimbleHH = clamp((instBot - instTop) * (compact ? 0.62 : 0.46), compact ? 46 : 70, compact ? 96 : 150);
+var sleeveHH = clamp((instBot - instTop) * (compact ? 0.42 : 0.34), compact ? 30 : 44, compact ? 60 : 104);
+var thimbleHH = clamp((instBot - instTop) * (compact ? 0.62 : 0.50), compact ? 46 : 74, compact ? 96 : 172);
 
 if (!compact) {
 head(ctx, W, '螺旋测微器 · 螺距 ' + P.MIC_PITCH + ' mm',
@@ -792,7 +791,6 @@ ctx.restore();
 box(ctx, sl0 - 13, yD - sleeveHH - 4, 14, sleeveHH * 2 + 8, { stroke: C.white, lw: 1.8 });
 
 var t0 = X(r.x);
-var thW = Math.max(200, W - mR - 10 - t0);
 var t1 = t0 + thW;
 box(ctx, sl0, yD - sleeveHH, Math.max(4, t0 - sl0), sleeveHH * 2, { stroke: C.grey, lw: 1.2 });
 
@@ -815,18 +813,17 @@ isLastH ? C.blue : C.white, isLastH ? 2.4 : 1.4, null, 1);
 }
 }
 
-var lx = sl0 - 16;
-txt(ctx, '毫米线', lx, yD - sleeveHH * 0.62, { size: 10.5, color: C.grey, align: 'right' });
-seg(ctx, lx + 4, yD - sleeveHH * 0.62, sl0 + 4, yD - sleeveHH * 0.62, C.grey, 1, null, 0.5);
-txt(ctx, '半毫米线', lx, yD + sleeveHH * 0.48, { size: 10.5, color: C.grey, align: 'right' });
-seg(ctx, lx + 4, yD + sleeveHH * 0.48, sl0 + 4, yD + sleeveHH * 0.48, C.grey, 1, null, 0.5);
+var lx = sl0 - 30;
+txt(ctx, '毫米线', lx, yD - sleeveHH * 0.62 - 10, { size: 10.5, color: C.grey, align: 'right' });
+txt(ctx, '半毫米线', lx, yD + sleeveHH * 0.48 + 11, { size: 10.5, color: C.grey, align: 'right' });
+txt(ctx, '基准线', sl0 + 5, yD + 13, { size: 10.5, color: C.grey, align: 'left' });
 
 box(ctx, t0, yD - thimbleHH, thW, thimbleHH * 2, { fill: C.bg });
 ctx.save(); ctx.globalAlpha = 0.045; ctx.fillStyle = C.white;
 ctx.fillRect(t0, yD - thimbleHH, thW, thimbleHH * 2); ctx.restore();
 box(ctx, t0, yD - thimbleHH, thW, thimbleHH * 2, { stroke: C.white, lw: 1.4 });
 
-var kx = t1 - 54, jj, yy;
+var kx = t1 - 46, jj, yy;
 ctx.save(); ctx.globalAlpha = 0.38; ctx.strokeStyle = C.grey; ctx.lineWidth = 1;
 for (jj = -20; jj <= 20; jj++) {
 yy = yD + jj * 12;
@@ -857,9 +854,8 @@ seg(ctx, t0 - 11, yD, t0 + 4, yD, C.gold, 1.4, [3, 3]);
 }
 
 seg(ctx, sl0, yD, Math.min(t1 - 12, t0 + 150), yD, C.white, 1.8, null, 0.95);
-txt(ctx, '基准线', sl0 + 4, yD + 14, { size: 10.5, color: C.grey, align: 'left' });
 
-seg(ctx, t0, yD - thimbleHH - 14, t0, yD + thimbleHH + 14, C.yellow, 2.4);
+seg(ctx, t0, yD - thimbleHH - 14, t0, yD + thimbleHH + 10, C.yellow, 2.4);
 txt(ctx, '读数边', t0, yD - thimbleHH - 27, { size: 11.5, color: C.yellow, weight: 600 });
 
 if (st.flags && st.flags.pitch) {
@@ -869,7 +865,7 @@ seg(ctx, xa, yb2, xb, yb2, C.yellow, 1.6);
 seg(ctx, xa, yb2 - 6, xa, yb2 + 6, C.yellow, 1.6);
 seg(ctx, xb, yb2 - 6, xb, yb2 + 6, C.yellow, 1.6);
 txt(ctx, '转 1 圈 → 前进 0.5 mm = 50 格 × 0.01 mm',
-xb + 14, yb2, { size: 12.5, color: C.yellow, weight: 600, align: 'left' });
+xb + 16, yb2, { size: 12, color: C.yellow, weight: 600, align: 'left' });
 }
 
 if (!compact) { drawThimbleStrip(ctx, st, r, W, H, stripTop, stripH, mL, mR); }
@@ -888,12 +884,12 @@ var x0 = mL + 30, x1 = mL + boxW - 30;
 var per = (x1 - x0) / P.MIC_DIV;
 var X = function (d) { return x0 + d * per; };
 
-txt(ctx, '可动刻度展开（把圆周摊平）', mL, yTop - 13, { size: 11.5, color: C.grey, align: 'left' });
-txt(ctx, '每格 0.01 mm　·　基准线指在第 ' + (r.div + r.est / 10).toFixed(1) + ' 格',
-mL + boxW, yTop - 13, { size: 11.5, color: C.grey, align: 'right' });
 box(ctx, mL, yTop, boxW, h, { stroke: C.grey, lw: 1.2, dash: [7, 5] });
+txt(ctx, '可动刻度展开（把圆周摊平）', mL + 10, yTop + 15, { size: 11.5, color: C.grey, align: 'left' });
+txt(ctx, '每格 0.01 mm　·　基准线指在第 ' + (r.div + r.est / 10).toFixed(1) + ' 格',
+mL + boxW - 10, yTop + 15, { size: 11.5, color: C.grey, align: 'right' });
 
-var yAxis = yTop + h * 0.52;
+var yAxis = yTop + h * 0.56;
 var tickBig = Math.min(h * 0.24, 46);
 var tickSml = tickBig * 0.52;
 var d, xp, isCur, col, hh;
@@ -913,10 +909,12 @@ txt(ctx, String(d), xp, yAxis + 16, { size: 11.5, color: isCur ? C.red : C.grey,
 }
 
 var xp2 = X(r.div) + per * (r.est / 10);
-seg(ctx, xp2, yAxis - tickBig - 26, xp2, yAxis + 30, C.yellow, 2.2);
-dot(ctx, xp2, yAxis - tickBig - 26, 4, C.yellow);
-txt(ctx, '基准线', xp2, yAxis - tickBig - 40, { size: 11.5, color: C.yellow, weight: 600 });
+seg(ctx, xp2, yAxis - tickBig - 18, xp2, yAxis + 30, C.yellow, 2.2);
+dot(ctx, xp2, yAxis - tickBig - 18, 4, C.yellow);
 halo(ctx, xp2, yAxis - tickBig * 0.5, 15, C.yellow);
+
+txt(ctx, (r.div + r.est / 10).toFixed(1) + ' 格', xp2 + 9, yAxis + 30,
+{ size: 11.5, color: C.yellow, weight: 600, align: 'left' });
 
 var yBar = yTop + h - 26;
 var segs = [
