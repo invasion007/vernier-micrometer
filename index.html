@@ -1224,10 +1224,10 @@ metal(ctx, xMov, sy1 - 3, jawW, jawH - beamH * 0.5, 2, C.dHi, C.dMid, C.dLo);
 metal(ctx, xMov - jawW * 1.5, yLip, jawW * 1.5, lipH, 2, C.dHi, C.dMid, C.dLo);
 
 var objW = st.objectMM != null ? st.objectMM : r.total;
-var ox0 = xFix + jawW * 1.5, ox1 = xMov - jawW * 1.5;
+var ox0 = xFix + jawW * 1.5, ox1 = ox0 + objW * pxmm;
 var oy1 = yJawBot - 2, oy0 = yLip + lipH * 0.16;
-if (ox1 > ox0 + 1.5) {
 var fitted = Math.abs(r.x - objW) <= cfg.precision * 0.5 + 1e-9;
+{
 ctx.save();
 rrectPath(ctx, ox0, oy0, ox1 - ox0, oy1 - oy0, 2);
 var og = ctx.createLinearGradient(0, oy0, 0, oy1);
@@ -1250,13 +1250,14 @@ txt(ctx, '被测物 ' + objW.toFixed(cfg.dec) + ' mm',
 if (fitted) {
 txt(ctx, '✓ 两爪已卡紧　→　读数 ' + P.fmtCaliper(r) + ' mm',
 W / 2, msgY, { size: compact ? 11.5 : 13.5, color: C.yellow, weight: 700 });
+} else if (r.x > objW) {
+txt(ctx, '往左推游标滑块，让两爪刚好贴住被测物（现在还有 ' +
+(r.x - objW).toFixed(cfg.dec) + ' mm 缝）',
+W / 2, msgY, { size: compact ? 11 : 12.5, color: C.grey2 });
 } else {
 txt(ctx, '拖游标滑块，让两爪刚好贴住被测物',
 W / 2, msgY, { size: compact ? 11 : 12.5, color: C.grey2 });
 }
-} else {
-txt(ctx, '两爪已闭合（读数为 0）—— 拖开滑块把被测物放进去',
-W / 2, msgY, { size: compact ? 11 : 12.5, color: C.grey2 });
 }
 
 var labY = Math.max(compact ? 30 : 56, sy0 - (compact ? 18 : 26));
@@ -1667,7 +1668,7 @@ flags: { object: true, hiAlign: false, dimJaw: true },
 init: function (st) {
 st.real = true; st.div = 10;
 st.objectMM = P.newObjectCaliper(10, 7);
-st.x = 0;
+st.x = Math.min(P.CAL_MM, st.objectMM + 18);
 }
 },
 {
@@ -2015,6 +2016,15 @@ updatePanel();
 draw();
 }
 
+function clampX(v) {
+var lim = (st.inst === 'micrometer') ? P.MIC_MAX : (st.real ? P.CAL_MM : P.CAL_XMAX);
+var out = Math.max(0, Math.min(lim, v));
+if (st.real && st.objectMM != null && st.inst !== 'compare') {
+out = Math.max(st.objectMM, out);
+}
+return (st.inst === 'micrometer') ? Math.round(out * 1000) / 1000 : Math.round(out * 100) / 100;
+}
+
 function setTxt(id, v, cls) {
 var el = document.getElementById(id);
 if (!el) { return; }
@@ -2234,7 +2244,7 @@ document.getElementById('toc');
 
 var rgX = document.getElementById('rgX');
 rgX.addEventListener('input', function () {
-st.x = parseFloat(rgX.value);
+st.x = clampX(parseFloat(rgX.value));
 quizGot = null; quizMsg = null;
 updatePanel(); buildControls(); R.draw(ctx, W, H, st);
 });
@@ -2271,8 +2281,7 @@ var wf = document.getElementById('wrapFine');
 wf.addEventListener('click', function (e) {
 var b = e.target.closest ? e.target.closest('button[data-d]') : null;
 if (!b) { return; }
-st.x = Math.max(0, Math.min(P.MIC_MAX, st.x + parseFloat(b.dataset.d)));
-st.x = Math.round(st.x * 1000) / 1000;
+st.x = clampX(st.x + parseFloat(b.dataset.d));
 quizGot = null; quizMsg = null;
 updatePanel(); buildControls(); syncSliders(); R.draw(ctx, W, H, st);
 });
@@ -2296,10 +2305,7 @@ perPx = P.CAL_MM / Math.max(60, W - 108) * 1;
 } else {
 perPx = (P.CAL_XMAX + P.vcfg(st.div).span + 3) / Math.max(60, W - 104) * 0.35;
 }
-var lim2 = (st.inst === 'micrometer') ? P.MIC_MAX : (st.real ? P.CAL_MM : P.CAL_XMAX);
-st.x = Math.max(0, Math.min(lim2, st.x + dx * perPx));
-if (st.inst === 'micrometer') { st.x = Math.round(st.x * 1000) / 1000; }
-else { st.x = Math.round(st.x * 100) / 100; }
+st.x = clampX(st.x + dx * perPx);
 quizGot = null; quizMsg = null;
 updatePanel(); buildControls(); syncSliders(); R.draw(ctx, W, H, st);
 });
