@@ -647,19 +647,19 @@ var yTop = 62;
 var avail = zTop - 30 - yTop;
 
 var ribH = hasRib ? clamp(avail * 0.16, 34, 62) : 0;
-var tk = clamp((avail - ribH) * 0.155, 16, 46);
+var tk = clamp((avail - ribH) * 0.20, 16, 74);
 var yBeamTop = yTop + 16;
 var yM0 = yBeamTop + tk * 1.45 + 4;
 var yV1 = yM0 + tk * 1.45 + tk * 1.62 + 6;
 var yJaw = yV1 + 36;
 var jawBotMax = zTop - 8 - ribH;
-var jawH = clamp(jawBotMax - yJaw, 34, 108);
+var jawH = clamp(jawBotMax - yJaw, 34, 200);
 
 var G = {
 X: X, pxmm: pxmm, x0: mL, x1: W - mR, mm0: 0, mm1: viewMM, dec: cfg.dec,
 yM0: yM0, yV1: yV1, yBeamTop: yBeamTop, tk: tk,
 yJaw: yJaw, jawH: jawH,
-yRib: yJaw + jawH + ribH * 0.62
+yRib: yJaw + jawH + ribH * 0.55
 };
 
 head(ctx, W, '游标卡尺 · ' + cfg.k + ' 分度',
