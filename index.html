@@ -1518,8 +1518,10 @@ var lipH = jawH * 0.30;
 var yLip = yJawBot - lipH;
 
 var xFix = X(0);
+var lipL = clamp(jawW * 1.2, 8, 22);
 metal(ctx, xFix - jawW, yBeam + beamH - 2, jawW, jawH - beamH * 0.6, 2, C.dHi, C.dMid, C.dLo);
-metal(ctx, xFix, yLip, jawW * 1.5, lipH, 2, C.dHi, C.dMid, C.dLo);
+
+metal(ctx, xFix - lipL, yLip, lipL, lipH, 2, C.dHi, C.dMid, C.dLo);
 
 var pad = 12;
 var sx0 = X(r.x) - pad, sx1 = X(r.x + cfg.span) + pad;
@@ -1550,10 +1552,15 @@ txt(ctx, String(n), xv, sy1 + (compact ? 11 : 13),
 
 var xMov = X(r.x);
 metal(ctx, xMov, sy1 - 3, jawW, jawH - beamH * 0.5, 2, C.dHi, C.dMid, C.dLo);
-metal(ctx, xMov - jawW * 1.5, yLip, jawW * 1.5, lipH, 2, C.dHi, C.dMid, C.dLo);
+
+metal(ctx, xMov, yLip, lipL, lipH, 2, C.dHi, C.dMid, C.dLo);
 
 var objW = st.objectMM != null ? st.objectMM : r.total;
-var ox0 = xFix + jawW * 1.5, ox1 = ox0 + objW * pxmm;
+
+var ox0 = X(0), ox1 = X(objW);
+
+ox0 += 1; ox1 -= 1;
+if (ox1 <= ox0) { ox1 = ox0 + 2; }
 var oy1 = yJawBot - 2, oy0 = yLip + lipH * 0.16;
 var fitted = Math.abs(r.x - objW) <= cfg.precision * 0.5 + 1e-9;
 {
