@@ -709,7 +709,9 @@ drawScalePair(ctx, st, r, G, { hiAlign: !!(st.flags && st.flags.hiAlign) });
 drawCaliperMarks(ctx, st, r, G);
 if (hasRib) { drawOffsetRibbon(ctx, st, r, G); }
 
-drawZoomStrip(ctx, st, r, W, H, zTop, zH, mL, mR, false);
+var pb = (st.flags && st.flags.steps) ? stepsPanelBox(W, H, st) : null;
+var zmL = pb ? (pb.x + pb.w + 22) : mL;
+drawZoomStrip(ctx, st, r, W, H, zTop, zH, zmL, mR, false);
 
 legend(ctx, W, H - 20, [
 { t: '主尺读数 ' + r.mainMM + ' mm', c: C.blue },
@@ -1046,6 +1048,13 @@ var MIC_STEPS = [
 { k: '估读最后一位', d: '基准线在两格之间 → 估到 0.001 mm' }
 ];
 
+function stepsPanelBox(W, H, st) {
+var n = (st.inst === 'micrometer') ? MIC_STEPS.length : CAL_STEPS.length;
+var pw = clamp(W * 0.28, 220, 360);
+var ph = 40 + n * 44 + 34;
+return { w: pw, h: ph, x: 20, y: Math.max(70, H - ph - 46) };
+}
+
 function drawStepsPanel(ctx, W, H, st) {
 var isMic = (st.inst === 'micrometer');
 var list = isMic ? MIC_STEPS : CAL_STEPS;
@@ -1053,10 +1062,8 @@ var a = isMic ? window.VizPhys.micro(st.x) : window.VizPhys.vernier(st.x, st.div
 
 var cur = isMic ? (a.tight ? 0 : 1) : 1;
 
-var pw = clamp(W * 0.30, 240, 400);
-var px = W - pw - 16;
-var ph = 44 + list.length * 46;
-var py = Math.max(58, (H - ph) / 2 - 40);
+var box = stepsPanelBox(W, H, st);
+var pw = box.w, ph = box.h, px = box.x, py = box.y;
 
 ctx.save();
 
@@ -1072,7 +1079,7 @@ px + 14, py + 20, { size: 12.5, color: C.grey, align: 'left', weight: 600 });
 
 var i, y;
 for (i = 0; i < list.length; i++) {
-y = py + 42 + i * 46;
+y = py + 40 + i * 44;
 var on = (i === cur);
 if (on) {
 ctx.save(); ctx.globalAlpha = 0.10; ctx.fillStyle = C.yellow;
@@ -1094,7 +1101,7 @@ txt(ctx, list[i].d, px + 42, y + 13,
 { size: 11, color: on ? C.grey : '#6E6E6E', align: 'left' });
 }
 
-var by = py + ph + 14;
+var by = py + ph + 13;
 txt(ctx, (isMic ? window.VizPhys.fmtMicro(a) : window.VizPhys.fmtCaliper(a)) + ' mm',
 px + pw - 14, by, { size: 17, color: C.yellow, align: 'right', weight: 700 });
 txt(ctx, '当前读数', px + 14, by, { size: 11.5, color: C.grey, align: 'left' });
