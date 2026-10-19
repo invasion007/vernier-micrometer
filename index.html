@@ -163,6 +163,17 @@
       <button data-d="0.001">+0.001</button>
     </div>
 
+    <div class="grp" id="wrapZoomBtn"><span class="lab">缩放</span>
+      <button data-z="in">放大 +</button>
+      <button data-z="out">缩小 −</button>
+      <button data-z="reset">重置</button>
+    </div>
+
+    <div class="grp" id="wrapKnob"><span class="lab">旋钮</span>
+      <button data-knob="coarse">粗调（上/下拖）</button>
+      <button data-knob="fine">微调（上/下拖）</button>
+    </div>
+
     <div class="grp" id="wrapQuizBtn">
       <button id="btnQuizNew" class="main">随机出题</button>
     </div>
@@ -416,6 +427,17 @@ green: '#83C167', gold: '#F0AC5F', purple: '#9A72AC', teal: '#5CD0B3'
 };
 
 function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+function rrect(ctx, x, y, w, h, r) {
+r = Math.min(r, w / 2, h / 2);
+ctx.beginPath();
+ctx.moveTo(x + r, y);
+ctx.arcTo(x + w, y, x + w, y + h, r);
+ctx.arcTo(x + w, y + h, x, y + h, r);
+ctx.arcTo(x, y + h, x, y, r);
+ctx.arcTo(x, y, x + w, y, r);
+ctx.closePath();
+}
 
 function txt(ctx, s, x, y, o) {
 o = o || {};
@@ -1008,6 +1030,74 @@ ctx.restore();
 if (st.inst === 'compare') { drawCompare(ctx, W, H, st); }
 else if (st.inst === 'micrometer') { drawMicrometer(ctx, W, H, st); }
 else { drawCaliper(ctx, W, H, st); }
+if (st.flags && st.flags.steps) { drawStepsPanel(ctx, W, H, st); }
+}
+
+var CAL_STEPS = [
+{ k: '识别分度类型', d: '确认 10 / 20 / 50 分度 → 精度 0.1 / 0.05 / 0.02 mm' },
+{ k: '读取主尺读数', d: '游标 0 线左边最近的主尺刻度，只取整毫米' },
+{ k: '寻找对齐线', d: '从左向右，找与主尺线完全对缝的那条游标线' },
+{ k: '计算游标读数', d: '对齐线序号 × 精度' },
+{ k: '合计最终读数', d: '主尺读数 + 游标读数 = 测量值' }
+];
+var MIC_STEPS = [
+{ k: '看半毫米线露没露', d: '露出 → 多算 0.5 mm（最常见的错）' },
+{ k: '读固定刻度 + 格数', d: '露出的最后一条线 + 基准线对的格数 × 0.01' },
+{ k: '估读最后一位', d: '基准线在两格之间 → 估到 0.001 mm' }
+];
+
+function drawStepsPanel(ctx, W, H, st) {
+var isMic = (st.inst === 'micrometer');
+var list = isMic ? MIC_STEPS : CAL_STEPS;
+var a = isMic ? window.VizPhys.micro(st.x) : window.VizPhys.vernier(st.x, st.div);
+
+var cur = isMic ? (a.tight ? 0 : 1) : 1;
+
+var pw = clamp(W * 0.30, 240, 400);
+var px = W - pw - 16;
+var ph = 44 + list.length * 46;
+var py = Math.max(58, (H - ph) / 2 - 40);
+
+ctx.save();
+
+ctx.globalAlpha = 0.90; ctx.fillStyle = '#0A0A0A';
+rrect(ctx, px, py, pw, ph, 8); ctx.fill();
+ctx.globalAlpha = 1;
+ctx.strokeStyle = '#2A2A2A'; ctx.lineWidth = 1;
+rrect(ctx, px, py, pw, ph, 8); ctx.stroke();
+ctx.restore();
+
+txt(ctx, isMic ? '螺旋测微器 · 读数三步' : '游标卡尺 · 读数五步',
+px + 14, py + 20, { size: 12.5, color: C.grey, align: 'left', weight: 600 });
+
+var i, y;
+for (i = 0; i < list.length; i++) {
+y = py + 42 + i * 46;
+var on = (i === cur);
+if (on) {
+ctx.save(); ctx.globalAlpha = 0.10; ctx.fillStyle = C.yellow;
+rrect(ctx, px + 8, y - 10, pw - 16, 40, 5); ctx.fill(); ctx.restore();
+}
+
+ctx.save();
+ctx.beginPath(); ctx.arc(px + 24, y + 4, 10, 0, Math.PI * 2);
+ctx.fillStyle = on ? C.yellow : '#1E1E1E';
+ctx.fill();
+ctx.strokeStyle = on ? C.yellow : '#3A3A3A'; ctx.lineWidth = 1; ctx.stroke();
+ctx.restore();
+txt(ctx, String(i + 1), px + 24, y + 4,
+{ size: 11.5, color: on ? '#000000' : C.grey, weight: 700 });
+
+txt(ctx, list[i].k, px + 42, y - 3,
+{ size: 12.5, color: on ? C.yellow : C.white, align: 'left', weight: on ? 700 : 600 });
+txt(ctx, list[i].d, px + 42, y + 13,
+{ size: 11, color: on ? C.grey : '#6E6E6E', align: 'left' });
+}
+
+var by = py + ph + 14;
+txt(ctx, (isMic ? window.VizPhys.fmtMicro(a) : window.VizPhys.fmtCaliper(a)) + ' mm',
+px + pw - 14, by, { size: 17, color: C.yellow, align: 'right', weight: 700 });
+txt(ctx, '当前读数', px + 14, by, { size: 11.5, color: C.grey, align: 'left' });
 }
 
 return { draw: draw, C: C, FONT: FONT, txt: txt, seg: seg, box: box };
@@ -1630,6 +1720,7 @@ view: { az: 0, el: 0, zoom: 1 }
 }
 
 var A0 = '第一幕 · 实物测量';
+var AM = '读数五步法';
 var A1 = '第二幕 · 游标卡尺读数';
 var A2 = '第三幕 · 螺旋测微器读数';
 var A3 = '第四幕 · 卡尺原理：错位放大';
@@ -1704,6 +1795,38 @@ st.real = true;
 st.objectMM = P.newObject('micrometer', 3);
 st.x = st.objectMM;
 }
+},
+
+{
+act: AM, title: '游标卡尺读数五步法 —— 一步都不能跳',
+hint: '拖 <b>「游标零线位置」</b>换一个位置，右边五步法会<b>跟着高亮</b>当前该做哪一步',
+note: '这是标准流程，抄自教材与实验册：<br>' +
+'<b>① 识别分度类型</b>：确认是 10 / 20 / 50 分度，不同分度对应不同精度（本次实验按精度显示小数位数）。<br>' +
+'<b>② 读取主尺读数</b>：观察游标尺"0"刻度线在主尺上的位置，读取主尺<b>整毫米数</b>（不估读小数）。<br>' +
+'<b>③ 寻找对齐线</b>：从左向右在游标尺上找到与主尺刻度线<b>完美对齐</b>的那条线。<br>' +
+'<b>④ 计算游标读数</b>：对齐线的序号 × 游标卡尺精度（10 分度 0.1 mm，20 分度 0.05 mm，50 分度 0.02 mm）。<br>' +
+'<b>⑤ 合计最终读数</b>：主尺读数 + 游标尺读数 = 精确测量值（单位：毫米）。',
+formula: '读数 = 主尺读数 + 游标尺读数 = L + n × 精度',
+allow: { x: true, div: true, zoom: true, drag: true },
+rng: { x: [0, 21, 0.02], zoom: [1, 5, 0.5] },
+inst: 'caliper', div: 20,
+flags: { object: true, hiAlign: true, steps: true },
+init: function (st) { st.real = false; st.div = 20; st.x = 6.55; st.zoom = 2.5; }
+},
+{
+act: AM, title: '螺旋测微器读数三步法 —— 半毫米线是命门',
+hint: '拖 <b>「微分筒位置」</b>，右边三步法会高亮当前该做哪一步；注意第 ① 步专门盯半毫米线',
+note: '抄自实验册的流程：<br>' +
+'<b>① 看半毫米线露没露</b>：固定刻度上"上面是毫米线、下面是半毫米线"，半毫米线露出来了就要多算 0.5 mm —— ' +
+'这是最常见的错。<br>' +
+'<b>② 读固定刻度 + 可动刻度格数</b>：固定刻度读到露出的最后一条线；基准线对着可动刻度第几格，就是几个 0.01 mm。<br>' +
+'<b>③ 估读最后一位</b>：基准线落在两格之间时，估出它占了几成，写成 0.001 mm 那一位。',
+formula: '读数 = 固定刻度 + 格数 × 0.01 + 估读 × 0.001 mm',
+allow: { x: true, zoom: true, drag: true },
+rng: { x: [0, 12, 0.001], zoom: [1, 5, 0.5] },
+inst: 'micrometer',
+flags: { pitch: true, steps: true },
+init: function (st) { st.real = false; st.x = 5.96; st.zoom = 2; }
 },
 
 {
@@ -2150,6 +2273,15 @@ for (i = 0; i < bs.length; i++) {
 bs[i].classList.toggle('on', parseInt(bs[i].dataset.div, 10) === st.div);
 }
 
+var wz = document.getElementById('wrapZoomBtn');
+var zoomOn = !!(st.allow && st.allow.zoom) && st.inst !== 'compare';
+wz.classList.toggle('hidden', !zoomOn);
+setTxt('lbZoom', '×' + st.zoom.toFixed(1), '');
+
+var wk = document.getElementById('wrapKnob');
+var knobOn = !!(st.allow && st.allow.x) && st.inst === 'micrometer' && st.real;
+wk.classList.toggle('hidden', !knobOn);
+
 var wq = document.getElementById('wrapQuizBtn');
 wq.classList.toggle('hidden', !(st.allow && st.allow.quiz));
 
@@ -2268,6 +2400,46 @@ if (st.x < 0.2) { st.x = 0.2; }
 quizGot = null; quizMsg = null;
 draw(); syncSliders();
 });
+
+/* 缩放：放大 / 缩小 / 重置（步长 0.5，范围 1~5） */
+document.getElementById('wrapZoomBtn').addEventListener('click', function (e) {
+var b = e.target.closest ? e.target.closest('button[data-z]') : null;
+if (!b) { return; }
+var z = st.zoom;
+if (b.dataset.z === 'in') { z = Math.min(5, z + 0.5); }
+else if (b.dataset.z === 'out') { z = Math.max(1, z - 0.5); }
+else { z = 1; }
+st.zoom = z;
+updatePanel(); buildControls(); syncSliders(); R.draw(ctx, W, H, st);
+});
+
+/* 旋钮：按住上下拖（粗调 0.01 mm/px，微调 0.001 mm/px） */
+(function () {
+var wrap = document.getElementById('wrapKnob');
+var kn = null;
+function start(mode) {
+return function (e) {
+kn = { mode: mode, y: e.clientY };
+e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId);
+};
+}
+function move(e) {
+if (!kn) { return; }
+var dy = kn.y - e.clientY;
+kn.y = e.clientY;
+var step = (kn.mode === 'coarse') ? 0.01 : 0.001;
+st.x = clampX(st.x + dy * step * 0.5);
+updatePanel(); syncSliders(); R.draw(ctx, W, H, st);
+}
+function end() { kn = null; }
+var bs = wrap.querySelectorAll('button[data-knob]');
+for (var i = 0; i < bs.length; i++) {
+bs[i].addEventListener('pointerdown', start(bs[i].dataset.knob));
+bs[i].addEventListener('pointermove', move);
+bs[i].addEventListener('pointerup', end);
+bs[i].addEventListener('pointercancel', end);
+}
+})();
 
 document.getElementById('btnQuizNew').onclick = function () { newQuiz(); draw(); syncSliders(); };
 document.getElementById('btnQuizCheck').onclick = checkQuiz;
